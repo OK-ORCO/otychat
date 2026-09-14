@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { useSocket } from '../../../contexts/SocketContext';
 import { EmergencyHostStatus } from '../PopcornEmergency';
+import PollCard from '../PollCard';
 
 export default function FunTab() {
-  const { user, onlineUsers, emergency, startEmergency, queueMessages, chatMessages, displayedMessageId, hideFromDisplay, startNewNight } = useSocket();
+  const { user, onlineUsers, emergency, startEmergency, queueMessages, chatMessages, displayedMessageId, hideFromDisplay, startNewNight, startAwards, awards } = useSocket();
   const [picking, setPicking] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [nightOpen, setNightOpen] = useState(false);
   const [partyCode, setPartyCode] = useState('');
+  const [awardsOpen, setAwardsOpen] = useState(false);
+  const [awardsCode, setAwardsCode] = useState('');
 
   const others = onlineUsers.filter(u => u.odName !== user?.odName);
   const allSelected = others.length > 0 && others.every(u => selected.has(u.odName));
@@ -132,6 +135,57 @@ export default function FunTab() {
           )}
         </div>
       )}
+
+      <PollCard />
+
+      <div className="p-5 rounded-3xl" style={{ background: 'white', boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)' }}>
+        <h3 style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '16px', fontWeight: '700', color: 'var(--text)' }}>
+          🏆 Awards ceremony
+        </h3>
+        <p className="mt-1" style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+          Wrap up the night. The big screen runs through tonight's winners, everyone's phone gets the list. Host only.
+        </p>
+        {awards ? (
+          <p className="mt-3 p-3 rounded-xl text-center" style={{ background: 'rgba(251, 191, 36, 0.15)', fontFamily: 'Fredoka, sans-serif', fontSize: '13px', fontWeight: '600', color: 'var(--text)' }}>
+            Ceremony running, started by {awards.by}
+          </p>
+        ) : !awardsOpen ? (
+          <button
+            onClick={() => setAwardsOpen(true)}
+            className="w-full mt-3 py-3 rounded-2xl"
+            style={{ background: 'var(--bg-secondary)', color: 'var(--text)', border: 'none', fontFamily: 'Fredoka, sans-serif', fontSize: '14px', fontWeight: '600' }}
+          >
+            I am the host
+          </button>
+        ) : (
+          <div className="mt-3 flex gap-2">
+            <input
+              type="text"
+              value={awardsCode}
+              onChange={(e) => setAwardsCode(e.target.value)}
+              placeholder="Party code"
+              autoCapitalize="none"
+              className="flex-1 px-4 py-3 outline-none"
+              style={{ background: 'var(--bg-secondary)', borderRadius: '14px', border: 'none', fontFamily: 'Nunito, sans-serif', fontSize: '15px', minWidth: 0 }}
+            />
+            <button
+              onClick={() => { if (awardsCode.trim()) { startAwards(awardsCode.trim()); setAwardsOpen(false); setAwardsCode(''); } }}
+              disabled={!awardsCode.trim()}
+              className="px-4 py-3 rounded-2xl transition-all active:scale-95"
+              style={{
+                background: awardsCode.trim() ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)' : 'var(--bg-secondary)',
+                color: awardsCode.trim() ? 'white' : 'var(--text-muted)',
+                border: 'none',
+                fontFamily: 'Fredoka, sans-serif',
+                fontSize: '14px',
+                fontWeight: '700'
+              }}
+            >
+              Run it
+            </button>
+          </div>
+        )}
+      </div>
 
       <div className="p-5 rounded-3xl" style={{ background: 'white', boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)' }}>
         <h3 style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '16px', fontWeight: '700', color: 'var(--text)' }}>

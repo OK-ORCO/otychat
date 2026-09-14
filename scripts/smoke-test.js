@@ -248,11 +248,49 @@ async function main() {
     assert(b.odTitle === 'Early Bird', `title from db, got ${b.odTitle}`);
   });
 
-  await test('display overlay registers', async () => {
+  await test('display overlay registers and gets a join card with a QR', async () => {
     display = connect();
     await waitFor(display, 'connect');
+    const welcome = waitFor(display, 'display-welcome');
     display.emit('join-display');
     await waitFor(display, 'user-count');
+    const w = await welcome;
+    assert(w.joinUrl.startsWith('http://127.0.0.1:'), `join url ${w.joinUrl}`);
+    assert(typeof w.qrSvg === 'string' && w.qrSvg.includes('<svg'), 'qr svg');
+  });
+
+  await test('a poll can be created, voted on, closed, and reaches the display', async () => {
+    const created = waitFor(bob, 'poll-state', p => p && p.question === 'Pizza or tacos?');
+    const onDisplay = waitFor(display, 'poll-state', p => p && p.question === 'Pizza or tacos?');
+    alice.emit('poll-create', { question: 'Pizza or tacos?', options: ['Pizza', 'Tacos'] });
+    const [p] = await Promise.all([created, onDisplay]);
+    assert(p.options.length === 2 && p.total === 0 && !p.closed && p.by === 'alice', JSON.stringify(p));
+
+    const mine = waitFor(bob, 'poll-my-vote', v => v.option === 1);
+    const counted = waitFor(alice, 'poll-state', s => s && s.options[1].count === 1 && s.total === 1);
+    bob.emit('poll-vote', { option: 1 });
+    await Promise.all([mine, counted]);
+    // changing your vote moves it, does not add one
+    const moved = waitFor(alice, 'poll-state', s => s && s.options[0].count === 1 && s.options[1].count === 0);
+    bob.emit('poll-vote', { option: 0 });
+    await moved;
+
+    // only the creator (or the host code) can close
+    const refused = waitFor(bob, 'action-error');
+    bob.emit('poll-close', {});
+    await refused;
+    const closed = waitFor(display, 'poll-state', s => s && s.closed);
+    alice.emit('poll-close', {});
+    await closed;
+    const cleared = waitFor(bob, 'poll-state', s => s === null);
+    alice.emit('poll-clear', {});
+    await cleared;
+  });
+
+  await test('photos reach the display like doodles', async () => {
+    const blast = waitFor(display, 'drawing-blast', d => d.type === 'image');
+    alice.emit('send-chat', { text: 'look', drawing: 'data:image/png;base64,iVBORw0KGgo=', type: 'image' });
+    await blast;
   });
 
   await test('emoji spam is rate limited', async () => {
@@ -503,6 +541,29 @@ async function main() {
     const ended = waitFor(bob, 'popcorn-emergency-ended');
     alice.disconnect();
     await ended;
+  });
+
+  await test('awards ceremony needs the party code and names real winners', async () => {
+    alice = await joinAs('alice', alicePassword);
+    const refused = waitFor(alice, 'action-error');
+    alice.emit('start-awards', { adminCode: 'nope' });
+    await refused;
+
+    const onPhones = waitFor(bob, 'awards-ceremony');
+    const onDisplay = waitFor(display, 'awards-ceremony');
+    alice.emit('start-awards', { adminCode: ADMIN_CODE });
+    const [a] = await Promise.all([onPhones, onDisplay]);
+    assert(a.by === 'alice' && a.awards.length >= 2, `awards ${a.awards.length}`);
+    const catcher = a.awards.find(x => x.key === 'catches');
+    assert(catcher && catcher.username === 'alice' && catcher.value >= 1, 'alice caught tonight');
+    const question = a.awards.find(x => x.key === 'question');
+    assert(question && question.detail === 'a real question' && question.value === 1, 'best question is the upvoted one');
+    a.awards.forEach(x => assert(typeof x.profilePic === 'string' && x.icon && x.title, 'award shape'));
+
+    const ended = waitFor(display, 'awards-end');
+    alice.emit('end-awards', {});
+    await ended;
+    alice.disconnect();
   });
 
   await test('new night needs the party code, then wipes chat and queue and resets drinks', async () => {

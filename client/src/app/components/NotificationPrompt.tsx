@@ -37,10 +37,10 @@ export default function NotificationPrompt({ userId }: NotificationPromptProps) 
       }
     }
 
-    // Show prompt after a delay
+    // Card on the Me tab: no need to wait, just avoid a flash while support is probed
     const timer = setTimeout(() => {
       setShowPrompt(true);
-    }, 3000);
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [isSubscribed, isSupported, permission, isDismissed]);
@@ -68,7 +68,7 @@ export default function NotificationPrompt({ userId }: NotificationPromptProps) 
 
   return (
     <div
-      className="fixed bottom-24 left-4 right-4 z-50 animate-slide-up"
+      className="animate-slide-up"
       style={{
         animation: 'slideUp 0.3s ease-out',
       }}
@@ -87,7 +87,7 @@ export default function NotificationPrompt({ userId }: NotificationPromptProps) 
       `}</style>
 
       <div
-        className="p-4 mx-auto max-w-sm"
+        className="p-4"
         style={{
           background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
           borderRadius: '20px',

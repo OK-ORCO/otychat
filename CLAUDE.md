@@ -291,6 +291,8 @@ The names below are the ones actually emitted. `npm test` exercises most of them
 | `join` | `{ username, password }` |
 | `forgot-password` | `{ username, adminCode }` resets to a fresh temp password (passwords are scrypt-hashed, never readable) |
 | `start-new-night` | `{ adminCode }` ends the session: clears chat + queue, hides the display, resets tonight's drinks |
+| `poll-create` / `poll-vote` / `poll-close` / `poll-clear` | `{ question, options[] }` / `{ option }` / `{ adminCode? }` (creator or host) |
+| `start-awards` / `end-awards` | `{ adminCode }` runs tonight's awards on every phone and the display |
 | `send-emoji` | `{ emoji }` |
 | `send-chat` / `send-to-queue` | `{ text?, drawing?, type }` |
 | `upvote-chat` | `{ messageId }` |
@@ -329,12 +331,17 @@ The names below are the ones actually emitted. `npm test` exercises most of them
 | `popcorn-emergency-status` | Host's live view of the emergency |
 | `popcorn-emergency-response` / `popcorn-emergency-ended` / `popcorn-emergency-error` | |
 | `new-night` / `action-error` | `{ by }` board wiped by the host / `{ message }` for refused host actions |
+| `poll-state` / `poll-my-vote` | Full poll with counts (or `null` when cleared) / your own vote index |
+| `awards-ceremony` / `awards-end` | `{ awards[], by }` (each: key, icon, title, username, profilePic, value, label, detail, sprite) |
 | `evolvable-data` | Caught Pokemon that can evolve right now, with options; sent with `pokedex-data` |
 
 ### Server → Display (Chrome Extension)
 | Event | Payload |
 |-------|---------|
 | `emoji-blast` | `{ emoji, username, userColor }` (broadcast to everyone) |
+| `display-welcome` | `{ joinUrl, qrSvg, onlineCount }` on connect; the overlay shows a join card for 90s (popup button toggles it). Set `PUBLIC_URL` if the proxy hides the real host |
+| `poll-state` / `awards-ceremony` / `awards-end` | Poll card top-left; awards play one card every 6s then a summary |
+| `drawing-blast` | `{ username, text, drawing, type }` doodles and photos |
 | `show-question` / `hide-question` | `{ id, username, text, drawing, votes }` / `{}` |
 | `popcorn-emergency-start` | `{ hostUsername, invitees: [{ username }] }` (only when sent to everyone) |
 | `popcorn-emergency-response` | `{ username, status }` |

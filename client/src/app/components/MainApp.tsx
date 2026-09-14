@@ -7,8 +7,8 @@ import MeTab from './tabs/MeTab';
 import PokemonTab from './tabs/PokemonTab';
 import FunTab from './tabs/FunTab';
 import AnimatedBackground from './AnimatedBackground';
-import NotificationPrompt from './NotificationPrompt';
 import { EmergencyInviteModal } from './PopcornEmergency';
+import AwardsSheet from './AwardsSheet';
 import NoticeToast from './NoticeToast';
 import { UI_SPRITES } from '../data/pokemon-data';
 
@@ -20,9 +20,8 @@ interface MainAppProps {
 }
 
 export default function MainApp({ username }: MainAppProps) {
-  const { unreadDMCount, user, emergency, activePokemon } = useSocket();
+  const { unreadDMCount, user, emergency, activePokemon, poll, awards } = useSocket();
   const profilePic = user?.odProfilePic || '👤';
-  const userId = user?.odUserId || null;
   const [activeTab, setActiveTab] = useState<Tab>('feed');
   const [dmTarget, setDmTarget] = useState<string | null>(null);
   const [backgroundTheme, setBackgroundTheme] = useState<Theme>('gradient');
@@ -33,6 +32,7 @@ export default function MainApp({ username }: MainAppProps) {
   };
 
   const hostingEmergency = emergency?.role === 'host';
+  const funBadge = hostingEmergency ? '!' : poll && !poll.closed ? '📊' : undefined;
 
   return (
     <div className="h-screen flex flex-col relative" style={{
@@ -88,15 +88,15 @@ export default function MainApp({ username }: MainAppProps) {
           icon="🍿"
           label="Fun"
           active={activeTab === 'fun'}
-          badge={hostingEmergency ? 1 : undefined}
+          badge={funBadge}
           onClick={() => setActiveTab('fun')}
         />
         <TabButton icon={profilePic} label="Me" active={activeTab === 'me'} onClick={() => setActiveTab('me')} isProfilePic />
       </div>
 
       <NoticeToast />
+      {awards && <AwardsSheet />}
       {emergency?.role === 'invitee' && <EmergencyInviteModal />}
-      <NotificationPrompt userId={userId} />
     </div>
   );
 }

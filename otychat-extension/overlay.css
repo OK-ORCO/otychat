@@ -651,3 +651,149 @@
 
 .otychat-doodle-author { font-size: 18px !important; font-weight: 700 !important; color: #8b5cf6 !important; margin-bottom: 8px !important; }
 .otychat-doodle-text { font-size: 22px !important; font-weight: 600 !important; margin-top: 8px !important; max-width: 360px !important; }
+
+/* ============================================
+   JOIN CARD
+   ============================================ */
+
+.otychat-join {
+  position: absolute !important;
+  top: 32px !important;
+  left: 32px !important;
+  display: none !important;
+  align-items: center !important;
+  gap: 18px !important;
+  background: #ffffff !important;
+  border-radius: 24px !important;
+  padding: 18px 24px 18px 18px !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25) !important;
+  font-family: 'Fredoka', 'Nunito', system-ui, sans-serif !important;
+  color: #1f2937 !important;
+  pointer-events: none !important;
+  z-index: 999996 !important;
+}
+
+.otychat-join.active {
+  display: flex !important;
+  animation: otychat-toast-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+.otychat-join-qr { width: 150px !important; height: 150px !important; flex-shrink: 0 !important; }
+.otychat-join-qr svg { width: 150px !important; height: 150px !important; display: block !important; }
+.otychat-join-title { font-size: 22px !important; font-weight: 700 !important; color: #8b5cf6 !important; }
+.otychat-join-url { font-size: 26px !important; font-weight: 700 !important; margin-top: 4px !important; word-break: break-all !important; max-width: 420px !important; }
+.otychat-join-count { font-size: 15px !important; color: #6b7280 !important; margin-top: 6px !important; }
+
+/* ============================================
+   POLL CARD
+   ============================================ */
+
+.otychat-poll {
+  position: absolute !important;
+  top: 32px !important;
+  left: 32px !important;
+  width: 460px !important;
+  display: none !important;
+  background: #ffffff !important;
+  border-radius: 24px !important;
+  padding: 20px 24px !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25) !important;
+  border-left: 8px solid #3b82f6 !important;
+  font-family: 'Fredoka', 'Nunito', system-ui, sans-serif !important;
+  color: #1f2937 !important;
+  pointer-events: none !important;
+  z-index: 999996 !important;
+}
+
+.otychat-poll.active { display: block !important; }
+
+.otychat-poll-head { display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 8px !important; }
+.otychat-poll-badge {
+  display: inline-block !important;
+  padding: 4px 12px !important;
+  border-radius: 14px !important;
+  background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%) !important;
+  color: #fff !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+}
+.otychat-poll-by { font-size: 13px !important; color: #6b7280 !important; }
+.otychat-poll-question { font-size: 24px !important; font-weight: 700 !important; margin-bottom: 14px !important; line-height: 1.3 !important; }
+
+.otychat-poll-option {
+  position: relative !important;
+  height: 40px !important;
+  border-radius: 12px !important;
+  background: #f3e8ff !important;
+  margin-bottom: 8px !important;
+  overflow: hidden !important;
+}
+.otychat-poll-option.winner { box-shadow: 0 0 0 3px #10b981 !important; }
+.otychat-poll-bar {
+  position: absolute !important;
+  left: 0 !important; top: 0 !important; bottom: 0 !important;
+  background: linear-gradient(90deg, #ec4899 0%, #8b5cf6 100%) !important;
+  opacity: 0.35 !important;
+  transition: width 0.4s ease !important;
+}
+.otychat-poll-label {
+  position: relative !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  height: 100% !important;
+  padding: 0 14px !important;
+  font-size: 17px !important;
+  font-weight: 600 !important;
+}
+.otychat-poll-pct { font-weight: 700 !important; color: #8b5cf6 !important; }
+.otychat-poll-total { font-size: 13px !important; color: #6b7280 !important; margin-top: 4px !important; }
+
+/* ============================================
+   AWARDS
+   ============================================ */
+
+.otychat-award,
+.otychat-awards-summary {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  background: #ffffff !important;
+  border-radius: 36px !important;
+  padding: 40px 64px !important;
+  text-align: center !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3) !important;
+  border: 6px solid #fbbf24 !important;
+  font-family: 'Fredoka', 'Nunito', system-ui, sans-serif !important;
+  color: #1f2937 !important;
+  pointer-events: none !important;
+  z-index: 999998 !important;
+  animation: otychat-toast-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  min-width: 480px !important;
+}
+
+.otychat-award-icon { font-size: 64px !important; }
+.otychat-award-title { font-size: 26px !important; font-weight: 700 !important; color: #f59e0b !important; letter-spacing: 1px !important; text-transform: uppercase !important; }
+.otychat-award-pic {
+  width: 120px !important; height: 120px !important;
+  border-radius: 32px !important;
+  object-fit: cover !important;
+  margin: 16px auto 10px !important;
+  display: flex !important; align-items: center !important; justify-content: center !important;
+  background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%) !important;
+  box-shadow: 0 8px 24px rgba(236, 72, 153, 0.35) !important;
+}
+.otychat-award-pic.emoji { font-size: 64px !important; }
+.otychat-award-name { font-size: 48px !important; font-weight: 700 !important; }
+.otychat-award-sprite { width: 120px !important; height: 120px !important; image-rendering: pixelated !important; margin: 4px auto !important; display: block !important; }
+.otychat-award-detail { font-size: 24px !important; color: #6b7280 !important; margin-top: 8px !important; max-width: 640px !important; }
+.otychat-award-value { font-size: 22px !important; font-weight: 600 !important; color: #8b5cf6 !important; margin-top: 8px !important; }
+
+.otychat-awards-summary { padding: 32px 48px !important; }
+.otychat-awards-summary-title { font-size: 34px !important; font-weight: 700 !important; margin-bottom: 16px !important; }
+.otychat-awards-row { display: flex !important; align-items: center !important; gap: 14px !important; padding: 8px 0 !important; font-size: 22px !important; border-bottom: 1px solid #f3e8ff !important; text-align: left !important; }
+.otychat-awards-row-icon { font-size: 28px !important; }
+.otychat-awards-row-title { color: #6b7280 !important; font-weight: 600 !important; min-width: 220px !important; }
+.otychat-awards-row-name { font-weight: 700 !important; color: #8b5cf6 !important; }
+.otychat-awards-thanks { margin-top: 16px !important; font-size: 20px !important; color: #6b7280 !important; }

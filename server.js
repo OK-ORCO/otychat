@@ -10,6 +10,8 @@ const { Server } = require('socket.io');
 const path = require('path');
 const fs = require('fs');
 
+const QRCode = require('qrcode');
+
 const db = require('./db');
 const pokemon = require('./pokemon');
 const achievements = require('./achievements');
@@ -333,6 +335,13 @@ let displayedMessageId = null;
 const EMERGENCY_TTL_MS = 5 * 60 * 1000;
 let activeEmergency = null;
 
+// One poll at a time, in memory only. Results linger briefly after closing.
+const POLL_LINGER_MS = 60 * 1000;
+let activePoll = null;
+
+// Awards ceremony currently on screen, so late joiners can see it too.
+let activeAwards = null;
+
 // ============================================
 // HELPERS
 // ============================================
@@ -399,6 +408,74 @@ function emergencyPublicState() {
     createdAt: activeEmergency.createdAt,
     expiresAt: activeEmergency.createdAt + EMERGENCY_TTL_MS
   };
+}
+
+/** Where phones should point their browser, as seen from this connection. */
+function publicUrlFor(headers) {
+  if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL.replace(/\/$/, '');
+  const proto = (headers['x-forwarded-proto'] || 'http').split(',')[0].trim();
+  const host = headers['x-forwarded-host'] || headers.host || `localhost:${PORT}`;
+  return `${proto}://${host}`;
+}
+
+function pollPublicState() {
+  if (!activePoll) return null;
+  const counts = activePoll.options.map(() => 0);
+  activePoll.votes.forEach(index => { counts[index] += 1; });
+  return {
+    id: activePoll.id,
+    question: activePoll.question,
+    options: activePoll.options.map((text, i) => ({ text, count: counts[i] })),
+    total: activePoll.votes.size,
+    closed: activePoll.closed,
+    by: activePoll.by,
+    createdAt: activePoll.createdAt
+  };
+}
+
+function broadcastPoll() {
+  const state = pollPublicState();
+  io.emit('poll-state', state);
+}
+
+function clearPoll() {
+  if (!activePoll) return;
+  clearTimeout(activePoll.lingerTimer);
+  activePoll = null;
+  io.emit('poll-state', null);
+}
+
+const AWARD_DEFS = [
+  { key: 'reactions', icon: '🔥', title: 'Hype Machine', label: 'reactions' },
+  { key: 'catches', icon: '⚾', title: 'Top Catcher', label: 'Pokémon caught' },
+  { key: 'shiny', icon: '✨', title: 'Shiny of the Night', label: null },
+  { key: 'question', icon: '❓', title: 'Best Question', label: 'upvotes' },
+  { key: 'chatter', icon: '💬', title: 'Chatterbox', label: 'messages' },
+  { key: 'kudos', icon: '💖', title: 'Most Loved', label: 'kudos received' },
+  { key: 'drinks', icon: '🍺', title: 'Last One Standing', label: 'drinks' }
+];
+
+function buildAwards() {
+  if (!currentPresentation) return [];
+  const rows = db.getNightAwards(currentPresentation.id, currentPresentation.started_at);
+  return AWARD_DEFS
+    .map(def => {
+      const row = rows[def.key];
+      if (!row) return null;
+      return {
+        key: def.key,
+        icon: def.icon,
+        title: def.title,
+        username: row.username,
+        profilePic: row.profile_pic || '👤',
+        value: row.value ?? null,
+        label: def.label,
+        detail: row.detail || null,
+        pokemonId: row.pokemon_id || null,
+        sprite: row.pokemon_id ? pokemon.getSpriteUrl(row.pokemon_id, def.key === 'shiny') : null
+      };
+    })
+    .filter(Boolean);
 }
 
 function endEmergency(reason = 'ended') {
@@ -887,6 +964,14 @@ io.on('connection', (socket) => {
     // What the Slides overlay is showing right now
     socket.emit('display-question-changed', { messageId: displayedMessageId });
 
+    // Poll and awards in progress
+    if (activePoll) {
+      socket.emit('poll-state', pollPublicState());
+      const mine = activePoll.votes.get(user.username);
+      if (mine !== undefined) socket.emit('poll-my-vote', { pollId: activePoll.id, option: mine });
+    }
+    if (activeAwards) socket.emit('awards-ceremony', activeAwards);
+
     // Re-attach to an in-flight Popcorn Emergency after a reconnect
     if (activeEmergency) {
       if (activeEmergency.hostUsername === user.username) {
@@ -937,10 +1022,42 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('join-display', () => {
+  socket.on('join-display', async () => {
     displaySockets.add(socket.id);
     socket.emit('user-count', getOnlineCount());
     console.log('[Display] Connected');
+
+    // Join card: where to go and a QR for it
+    const joinUrl = publicUrlFor(socket.handshake.headers);
+    try {
+      const qrSvg = await QRCode.toString(joinUrl, { type: 'svg', margin: 1, color: { dark: '#1f2937', light: '#ffffff' } });
+      socket.emit('display-welcome', { joinUrl, qrSvg, onlineCount: getOnlineCount() });
+    } catch (err) {
+      socket.emit('display-welcome', { joinUrl, qrSvg: null, onlineCount: getOnlineCount() });
+    }
+
+    // Catch the display up on anything in flight
+    if (displayedMessageId !== null) {
+      const message = db.getChatMessage(displayedMessageId);
+      if (message) {
+        socket.emit('show-question', {
+          id: message.id, username: message.username, text: message.text,
+          drawing: message.drawing, type: message.type, votes: message.votes
+        });
+      }
+    }
+    if (activePoll) socket.emit('poll-state', pollPublicState());
+    if (activeAwards) socket.emit('awards-ceremony', activeAwards);
+    if (activeEmergency && activeEmergency.isAll) {
+      socket.emit('popcorn-emergency-start', {
+        hostUsername: activeEmergency.hostUsername,
+        invitees: activeEmergency.invitees.map(username => ({ username }))
+      });
+      activeEmergency.invitees.forEach(username => {
+        const status = activeEmergency.responses[username];
+        if (status) socket.emit('popcorn-emergency-response', { username, status });
+      });
+    }
   });
 
   socket.on('join-admin', ({ adminCode }) => {
@@ -1171,11 +1288,13 @@ io.on('connection', (socket) => {
       isDrawing: messageType === 'drawing'
     });
 
-    if (drawing && messageType === 'drawing') {
+    // Doodles and photos both pop onto the big screen
+    if (drawing && (messageType === 'drawing' || messageType === 'image')) {
       emitToDisplay('drawing-blast', {
         username: socket.data.username,
         text,
-        drawing
+        drawing,
+        type: messageType
       });
     }
   });
@@ -1602,6 +1721,93 @@ io.on('connection', (socket) => {
   });
 
   // ----------------------------------------
+  // POLLS
+  // ----------------------------------------
+
+  socket.on('poll-create', ({ question, options } = {}) => {
+    if (!socket.data.userId) return;
+    if (activePoll && !activePoll.closed) {
+      socket.emit('action-error', { message: `${activePoll.by} already has a poll open` });
+      return;
+    }
+    const q = String(question || '').trim().slice(0, 120);
+    const opts = (Array.isArray(options) ? options : [])
+      .map(o => String(o || '').trim().slice(0, 60))
+      .filter(Boolean);
+    if (!q || opts.length < 2 || opts.length > 6) {
+      socket.emit('action-error', { message: 'A poll needs a question and 2 to 6 options' });
+      return;
+    }
+    if (activePoll) clearPoll();
+    activePoll = {
+      id: `poll-${Date.now()}`,
+      question: q,
+      options: opts,
+      votes: new Map(),
+      closed: false,
+      by: socket.data.username,
+      createdAt: Date.now(),
+      lingerTimer: null
+    };
+    broadcastPoll();
+    console.log(`[Poll] ${socket.data.username}: "${q}" (${opts.length} options)`);
+  });
+
+  socket.on('poll-vote', ({ option } = {}) => {
+    if (!socket.data.userId || !activePoll || activePoll.closed) return;
+    const index = Number(option);
+    if (!Number.isInteger(index) || index < 0 || index >= activePoll.options.length) return;
+    activePoll.votes.set(socket.data.username, index);
+    emitToUser(socket.data.username, 'poll-my-vote', { pollId: activePoll.id, option: index });
+    broadcastPoll();
+  });
+
+  socket.on('poll-close', ({ adminCode } = {}) => {
+    if (!socket.data.userId || !activePoll || activePoll.closed) return;
+    if (activePoll.by !== socket.data.username && adminCode !== ADMIN_CODE) {
+      socket.emit('action-error', { message: 'Only the poll creator or the host can close it' });
+      return;
+    }
+    activePoll.closed = true;
+    broadcastPoll();
+    activePoll.lingerTimer = setTimeout(clearPoll, POLL_LINGER_MS);
+    console.log(`[Poll] closed: "${activePoll.question}"`);
+  });
+
+  socket.on('poll-clear', ({ adminCode } = {}) => {
+    if (!socket.data.userId || !activePoll) return;
+    if (activePoll.by !== socket.data.username && adminCode !== ADMIN_CODE) return;
+    clearPoll();
+  });
+
+  // ----------------------------------------
+  // AWARDS CEREMONY (host only, via party code)
+  // ----------------------------------------
+
+  socket.on('start-awards', ({ adminCode } = {}) => {
+    if (!socket.data.userId) return;
+    if (adminCode !== ADMIN_CODE) {
+      socket.emit('action-error', { message: 'Wrong party code' });
+      return;
+    }
+    const awards = buildAwards();
+    if (awards.length === 0) {
+      socket.emit('action-error', { message: 'Nothing to award yet. Do something first!' });
+      return;
+    }
+    activeAwards = { awards, by: socket.data.username, startedAt: Date.now() };
+    io.emit('awards-ceremony', activeAwards);
+    console.log(`[Awards] ${socket.data.username} started the ceremony: ${awards.map(a => `${a.title}=${a.username}`).join(', ')}`);
+  });
+
+  socket.on('end-awards', ({ adminCode } = {}) => {
+    if (!socket.data.userId || !activeAwards) return;
+    if (activeAwards.by !== socket.data.username && adminCode !== ADMIN_CODE) return;
+    activeAwards = null;
+    io.emit('awards-end');
+  });
+
+  // ----------------------------------------
   // NEW NIGHT (host only, via party code)
   // ----------------------------------------
 
@@ -1620,6 +1826,8 @@ io.on('connection', (socket) => {
     // Phones reset their "on the big screen" state even if nothing was up
     io.emit('display-question-changed', { messageId: null });
     endEmergency('new-night');
+    clearPoll();
+    if (activeAwards) { activeAwards = null; io.emit('awards-end'); }
     userSpawns.clear();
     catchAttempts.clear();
 

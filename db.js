@@ -1086,6 +1086,40 @@ function dismissFromQueue(messageId) {
   return runSql(`UPDATE chat_messages SET in_queue = 0 WHERE id = ?`, [messageId]);
 }
 
+// ============================================
+// AWARDS (one night = one presentation row)
+// ============================================
+
+/**
+ * Winners for the night. Each entry is null when nobody qualifies.
+ * `startedAt` is the presentation's started_at as returned by queryOne (ISO Z);
+ * SQLite rows carry the raw "YYYY-MM-DD HH:MM:SS" form, so convert for comparison.
+ */
+function getNightAwards(presentationId, startedAt) {
+  const since = String(startedAt || '').replace('T', ' ').replace('Z', '');
+  const top = (sql, params) => {
+    const row = queryOne(sql, params);
+    return row && (row.value === undefined || row.value > 0) ? row : null;
+  };
+
+  return {
+    reactions: top(`SELECT u.username, u.profile_pic, us.reactions AS value FROM user_stats us
+      JOIN users u ON u.id = us.user_id WHERE us.presentation_id = ? ORDER BY us.reactions DESC LIMIT 1`, [presentationId]),
+    drinks: top(`SELECT u.username, u.profile_pic, us.drinks AS value FROM user_stats us
+      JOIN users u ON u.id = us.user_id WHERE us.presentation_id = ? ORDER BY us.drinks DESC LIMIT 1`, [presentationId]),
+    catches: top(`SELECT u.username, u.profile_pic, COUNT(*) AS value FROM pokemon_caught pc
+      JOIN users u ON u.id = pc.user_id WHERE pc.caught_at >= ? GROUP BY pc.user_id ORDER BY value DESC LIMIT 1`, [since]),
+    shiny: top(`SELECT u.username, u.profile_pic, pc.pokemon_name AS detail, pc.pokemon_id FROM pokemon_caught pc
+      JOIN users u ON u.id = pc.user_id WHERE pc.is_shiny = 1 AND pc.caught_at >= ? ORDER BY pc.caught_at DESC LIMIT 1`, [since]),
+    kudos: top(`SELECT u.username, u.profile_pic, COUNT(*) AS value FROM kudos k
+      JOIN users u ON u.id = k.to_user_id WHERE k.sent_at >= ? GROUP BY k.to_user_id ORDER BY value DESC LIMIT 1`, [since]),
+    question: top(`SELECT u.username, u.profile_pic, cm.text AS detail, cm.votes AS value FROM chat_messages cm
+      JOIN users u ON u.id = cm.user_id WHERE cm.votes > 0 ORDER BY cm.votes DESC, cm.created_at ASC LIMIT 1`, []),
+    chatter: top(`SELECT u.username, u.profile_pic, COUNT(*) AS value FROM chat_messages cm
+      JOIN users u ON u.id = cm.user_id GROUP BY cm.user_id ORDER BY value DESC LIMIT 1`, [])
+  };
+}
+
 function clearChatMessages() {
   runSql(`DELETE FROM chat_votes`);
   runSql(`DELETE FROM chat_messages`);
@@ -1221,7 +1255,8 @@ module.exports = {
   getQueueCount,
   dismissFromQueue,
   clearQueue,
-  clearChatMessages
+  clearChatMessages,
+  getNightAwards
 };
 
 // ============================================

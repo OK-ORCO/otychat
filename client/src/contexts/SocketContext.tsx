@@ -197,6 +197,34 @@ export interface Evolvable {
   options: EvolutionOption[];
 }
 
+export interface PollState {
+  id: string;
+  question: string;
+  options: { text: string; count: number }[];
+  total: number;
+  closed: boolean;
+  by: string;
+  createdAt: number;
+}
+
+export interface Award {
+  key: string;
+  icon: string;
+  title: string;
+  username: string;
+  profilePic: string;
+  value: number | null;
+  label: string | null;
+  detail: string | null;
+  sprite: string | null;
+}
+
+export interface AwardsState {
+  awards: Award[];
+  by: string;
+  startedAt: number;
+}
+
 export interface CatchResult {
   kind: 'caught' | 'failed';
   message: string;
@@ -255,8 +283,18 @@ interface SocketContextType {
   forgotPasswordResult: ForgotPasswordResult | null;
   notice: Notice | null;
   emergency: EmergencyState | null;
+  poll: PollState | null;
+  myPollVote: number | null;
+  awards: AwardsState | null;
 
   // Actions
+  createPoll: (question: string, options: string[]) => void;
+  votePoll: (option: number) => void;
+  closePoll: (adminCode?: string) => void;
+  clearPoll: (adminCode?: string) => void;
+  startAwards: (adminCode: string) => void;
+  endAwards: (adminCode?: string) => void;
+  dismissAwards: () => void;
   join: (username: string, password: string) => void;
   forgotPassword: (username: string, adminCode: string) => void;
   startNewNight: (adminCode: string) => void;
@@ -345,6 +383,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [unreadDMCount, setUnreadDMCount] = useState(0);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [emergency, setEmergency] = useState<EmergencyState | null>(null);
+  const [poll, setPoll] = useState<PollState | null>(null);
+  const [myPollVote, setMyPollVote] = useState<number | null>(null);
+  const [awards, setAwards] = useState<AwardsState | null>(null);
   const [leaderboards, setLeaderboards] = useState<Leaderboards>({
     xp: [],
     pokemon: [],
@@ -975,6 +1016,35 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       showNotice(data.message, 'error');
     });
 
+    // ========== POLLS ==========
+
+    newSocket.on('poll-state', (state: PollState | null) => {
+      setPoll(prev => {
+        if (state && (!prev || prev.id !== state.id)) {
+          setMyPollVote(null);
+          if (state.by !== usernameRef.current) showNotice(`${state.by} started a poll: ${state.question}`, 'info');
+        }
+        if (state && prev && prev.id === state.id && state.closed && !prev.closed && state.by !== usernameRef.current) {
+          showNotice('Poll closed. Results are on the big screen.', 'info');
+        }
+        return state;
+      });
+    });
+
+    newSocket.on('poll-my-vote', (data: { pollId: string; option: number }) => {
+      setMyPollVote(data.option);
+    });
+
+    // ========== AWARDS ==========
+
+    newSocket.on('awards-ceremony', (data: AwardsState) => {
+      setAwards(data);
+    });
+
+    newSocket.on('awards-end', () => {
+      setAwards(null);
+    });
+
     // The host wiped the board for a fresh session
     newSocket.on('new-night', (data: { by: string }) => {
       seenChatIds.current.clear();
@@ -984,6 +1054,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setFeed([]);
       setActivePokemon(null);
       setCatchResult(null);
+      setPoll(null);
+      setMyPollVote(null);
+      setAwards(null);
       showNotice(`${data.by} started a new night. Fresh chat, drinks reset.`, 'success');
     });
 
@@ -1059,6 +1132,35 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const startNewNight = useCallback((adminCode: string) => {
     socket?.emit('start-new-night', { adminCode });
   }, [socket]);
+
+  const createPoll = useCallback((question: string, options: string[]) => {
+    socket?.emit('poll-create', { question, options });
+  }, [socket]);
+
+  const votePoll = useCallback((option: number) => {
+    setMyPollVote(option);
+    socket?.emit('poll-vote', { option });
+  }, [socket]);
+
+  const closePoll = useCallback((adminCode?: string) => {
+    socket?.emit('poll-close', { adminCode });
+  }, [socket]);
+
+  const clearPoll = useCallback((adminCode?: string) => {
+    socket?.emit('poll-clear', { adminCode });
+  }, [socket]);
+
+  const startAwards = useCallback((adminCode: string) => {
+    socket?.emit('start-awards', { adminCode });
+  }, [socket]);
+
+  const endAwards = useCallback((adminCode?: string) => {
+    socket?.emit('end-awards', { adminCode });
+  }, [socket]);
+
+  const dismissAwards = useCallback(() => {
+    setAwards(null);
+  }, []);
 
   const clearJoinError = useCallback(() => {
     setJoinError(null);
@@ -1252,6 +1354,16 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       forgotPasswordResult,
       notice,
       emergency,
+      poll,
+      myPollVote,
+      awards,
+      createPoll,
+      votePoll,
+      closePoll,
+      clearPoll,
+      startAwards,
+      endAwards,
+      dismissAwards,
       join,
       forgotPassword,
       startNewNight,

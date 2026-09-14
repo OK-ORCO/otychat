@@ -26,6 +26,7 @@ export default function ReactTab({ username, onOpenDM }: ReactTabProps) {
     hideFromDisplay
   } = useSocket();
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const [showQueue, setShowQueue] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const feedRef = useRef<HTMLDivElement>(null);
@@ -252,10 +253,12 @@ export default function ReactTab({ username, onOpenDM }: ReactTabProps) {
                   src={item.odImageData}
                   alt="Drawing"
                   className="mb-2 rounded-xl w-full"
+                  onClick={() => setLightbox(item.odImageData || null)}
                   style={{
                     maxHeight: '150px',
                     objectFit: 'contain',
-                    background: '#ffffeb'
+                    background: '#ffffeb',
+                    cursor: 'zoom-in'
                   }}
                 />
               )}
@@ -305,6 +308,24 @@ export default function ReactTab({ username, onOpenDM }: ReactTabProps) {
           placeholder="Say something..."
         />
       </div>
+
+      {/* Tap-to-enlarge for doodles and photos */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0, 0, 0, 0.85)' }}
+          onClick={() => setLightbox(null)}
+        >
+          <img
+            src={lightbox}
+            alt=""
+            style={{ maxWidth: '100%', maxHeight: '85vh', borderRadius: '16px', background: '#ffffeb', boxShadow: '0 16px 48px rgba(0,0,0,0.5)' }}
+          />
+          <span className="absolute top-4 right-4 text-white" style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '14px', opacity: 0.8 }}>
+            tap to close
+          </span>
+        </div>
+      )}
 
       {/* Queue Panel Modal */}
       {showQueue && (

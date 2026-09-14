@@ -5,6 +5,7 @@ import ProfilePicSelector from '../ProfilePicSelector';
 import Settings from '../Settings';
 import ProfileEditor from '../ProfileEditor';
 import Achievements from '../Achievements';
+import NotificationPrompt from '../NotificationPrompt';
 
 interface MeTabProps {
   username: string;
@@ -127,6 +128,8 @@ export default function MeTab({ username, onThemeChange, currentTheme }: MeTabPr
 
   return (
     <div className="p-4 space-y-4">
+      <NotificationPrompt userId={user?.odUserId || null} />
+
       {/* Profile Header */}
       <div className="p-5 rounded-3xl" style={{
         background: 'rgba(255, 255, 255, 0.95)',

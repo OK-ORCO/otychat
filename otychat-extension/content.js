@@ -54,6 +54,15 @@
 
     // Question card + popcorn emergency container (both hidden by default)
     overlayContainer.innerHTML = `
+      <div class="otychat-join" id="otychat-join">
+        <div class="otychat-join-qr" id="otychat-join-qr"></div>
+        <div class="otychat-join-text">
+          <div class="otychat-join-title">Join the party</div>
+          <div class="otychat-join-url" id="otychat-join-url"></div>
+          <div class="otychat-join-count" id="otychat-join-count"></div>
+        </div>
+      </div>
+      <div class="otychat-poll" id="otychat-poll"></div>
       <div class="otychat-question" id="otychat-question">
         <div class="otychat-question-badge">From the room</div>
         <div class="otychat-question-votes" id="otychat-question-votes"></div>
@@ -117,6 +126,12 @@
         socket.emit('join-display');
         console.log('✅ OtyChat overlay connected');
       });
+
+      socket.on('display-welcome', (data) => showJoinCard(data));
+      socket.on('user-count', (count) => updateJoinCount(count));
+      socket.on('poll-state', (state) => renderPoll(state));
+      socket.on('awards-ceremony', (data) => runAwards(data));
+      socket.on('awards-end', () => stopAwards());
 
       socket.on('disconnect', () => {
         console.log('❌ OtyChat overlay disconnected');
@@ -437,6 +452,164 @@
   }
 
   // ============================================
+  // JOIN CARD (QR + URL), shown on connect and on demand
+  // ============================================
+
+  const JOIN_CARD_MS = 90 * 1000;
+  let joinHideTimer = null;
+  let joinInfo = null;
+
+  function showJoinCard(data) {
+    joinInfo = data || joinInfo;
+    const card = document.getElementById('otychat-join');
+    if (!card || !joinInfo) return;
+    const qr = document.getElementById('otychat-join-qr');
+    qr.innerHTML = joinInfo.qrSvg || '';
+    document.getElementById('otychat-join-url').textContent = String(joinInfo.joinUrl || '').replace(/^https?:\/\//, '');
+    updateJoinCount(joinInfo.onlineCount || 0);
+    card.classList.add('active');
+    clearTimeout(joinHideTimer);
+    joinHideTimer = setTimeout(hideJoinCard, JOIN_CARD_MS);
+  }
+
+  function hideJoinCard() {
+    const card = document.getElementById('otychat-join');
+    if (card) card.classList.remove('active');
+    clearTimeout(joinHideTimer);
+  }
+
+  function toggleJoinCard() {
+    const card = document.getElementById('otychat-join');
+    if (card && card.classList.contains('active')) hideJoinCard();
+    else showJoinCard();
+  }
+
+  function updateJoinCount(count) {
+    const el = document.getElementById('otychat-join-count');
+    if (el) el.textContent = count === 1 ? '1 person here' : `${count} people here`;
+  }
+
+  // ============================================
+  // POLL CARD
+  // ============================================
+
+  function renderPoll(state) {
+    const card = document.getElementById('otychat-poll');
+    if (!card) return;
+    card.innerHTML = '';
+    if (!state) { card.classList.remove('active'); return; }
+    hideJoinCard();
+
+    const head = el('div', 'otychat-poll-head');
+    head.appendChild(el('span', 'otychat-poll-badge', state.closed ? 'Poll closed' : 'Poll'));
+    head.appendChild(el('span', 'otychat-poll-by', `by ${state.by}`));
+    card.appendChild(head);
+    card.appendChild(el('div', 'otychat-poll-question', state.question));
+
+    const total = state.total || 0;
+    const best = Math.max(0, ...state.options.map(o => o.count));
+    state.options.forEach(o => {
+      const pct = total ? Math.round((o.count / total) * 100) : 0;
+      const row = el('div', 'otychat-poll-option' + (state.closed && o.count === best && best > 0 ? ' winner' : ''));
+      const bar = el('div', 'otychat-poll-bar');
+      bar.style.width = `${Math.max(pct, 4)}%`;
+      row.appendChild(bar);
+      const label = el('div', 'otychat-poll-label');
+      label.appendChild(el('span', 'otychat-poll-text', o.text));
+      label.appendChild(el('span', 'otychat-poll-pct', `${pct}% · ${o.count}`));
+      row.appendChild(label);
+      card.appendChild(row);
+    });
+    card.appendChild(el('div', 'otychat-poll-total', `${total} vote${total === 1 ? '' : 's'} · vote from your phone`));
+    card.classList.add('active');
+  }
+
+  // ============================================
+  // AWARDS CEREMONY
+  // ============================================
+
+  const AWARD_SLIDE_MS = 6000;
+  let awardTimers = [];
+  let awardNodes = [];
+
+  function stopAwards() {
+    awardTimers.forEach(clearTimeout);
+    awardTimers = [];
+    awardNodes.forEach(n => n.remove());
+    awardNodes = [];
+  }
+
+  function profilePicNode(pic, className) {
+    const isImage = typeof pic === 'string' && (pic.startsWith('data:') || pic.startsWith('http') || pic.startsWith('/'));
+    if (isImage) {
+      const img = el('img', className);
+      img.src = pic.startsWith('/') ? serverUrl + pic : pic;
+      img.alt = '';
+      return img;
+    }
+    return el('div', className + ' emoji', pic || '👤');
+  }
+
+  function awardCard(a) {
+    const card = el('div', 'otychat-award');
+    card.appendChild(el('div', 'otychat-award-icon', a.icon));
+    card.appendChild(el('div', 'otychat-award-title', a.title));
+    card.appendChild(profilePicNode(a.profilePic, 'otychat-award-pic'));
+    card.appendChild(el('div', 'otychat-award-name', a.username));
+    if (a.sprite) {
+      const img = el('img', 'otychat-award-sprite');
+      img.src = a.sprite;
+      img.alt = '';
+      card.appendChild(img);
+    }
+    if (a.detail) card.appendChild(el('div', 'otychat-award-detail', a.key === 'question' ? `"${a.detail}"` : a.detail));
+    if (a.value !== null && a.label) card.appendChild(el('div', 'otychat-award-value', `${a.value} ${countLabel(a.value, a.label)}`));
+    return card;
+  }
+
+  // "1 reactions" reads badly; single-word labels drop the s at one
+  function countLabel(value, label) {
+    return value === 1 && !label.includes(' ') && label.endsWith('s') ? label.slice(0, -1) : label;
+  }
+
+  function awardsSummary(awards) {
+    const card = el('div', 'otychat-awards-summary');
+    card.appendChild(el('div', 'otychat-awards-summary-title', '🏆 Tonight\'s awards'));
+    awards.forEach(a => {
+      const row = el('div', 'otychat-awards-row');
+      row.appendChild(el('span', 'otychat-awards-row-icon', a.icon));
+      row.appendChild(el('span', 'otychat-awards-row-title', a.title));
+      row.appendChild(el('span', 'otychat-awards-row-name', a.username));
+      card.appendChild(row);
+    });
+    card.appendChild(el('div', 'otychat-awards-thanks', 'Thanks for coming 🎉'));
+    return card;
+  }
+
+  function runAwards(data) {
+    stopAwards();
+    hideJoinCard();
+    if (!data || !Array.isArray(data.awards) || data.awards.length === 0) return;
+    const awards = data.awards;
+    awards.forEach((a, i) => {
+      awardTimers.push(setTimeout(() => {
+        awardNodes.forEach(n => n.remove());
+        awardNodes = [];
+        const node = awardCard(a);
+        overlayContainer.appendChild(node);
+        awardNodes.push(node);
+      }, i * AWARD_SLIDE_MS));
+    });
+    awardTimers.push(setTimeout(() => {
+      awardNodes.forEach(n => n.remove());
+      awardNodes = [];
+      const node = awardsSummary(awards);
+      overlayContainer.appendChild(node);
+      awardNodes.push(node);
+    }, awards.length * AWARD_SLIDE_MS));
+  }
+
+  // ============================================
   // POPCORN EMERGENCY
   // ============================================
 
@@ -566,6 +739,9 @@
     if (message.action === 'reconnect') {
       if (socket) socket.disconnect();
       connectSocket();
+    }
+    if (message.action === 'toggle-join') {
+      toggleJoinCard();
     }
     if (message.action === 'test') {
       // Test all animation patterns

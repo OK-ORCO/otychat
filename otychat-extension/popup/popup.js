@@ -19,6 +19,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     setTimeout(() => saveBtn.textContent = 'Save & Connect', 1500);
   });
 
+  document.getElementById('joinBtn').addEventListener('click', async () => {
+    const tabs = await chrome.tabs.query({ url: 'https://docs.google.com/presentation/*' });
+    for (const tab of tabs) chrome.tabs.sendMessage(tab.id, { action: 'toggle-join' });
+  });
+
   testBtn.addEventListener('click', async () => {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tabs[0] && tabs[0].url.includes('docs.google.com/presentation')) {
