@@ -60,6 +60,12 @@ export default function NotificationPrompt({ userId }: NotificationPromptProps) 
 
   if (!showPrompt) return null;
 
+  // iPhones can only receive web push once the app is on the Home Screen.
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  const needsHomeScreen = isIOS && !isStandalone;
+
   return (
     <div
       className="fixed bottom-24 left-4 right-4 z-50 animate-slide-up"
@@ -113,7 +119,9 @@ export default function NotificationPrompt({ userId }: NotificationPromptProps) 
                 fontSize: '13px',
                 color: 'rgba(255, 255, 255, 0.7)',
               }}>
-                Get notified for DMs & events
+                {needsHomeScreen
+                  ? 'On iPhone: tap Share, then Add to Home Screen, and open the app from there to get DMs, Pokémon and emergency alerts.'
+                  : 'Get pinged for DMs, wild Pokémon and popcorn emergencies'}
               </p>
             </div>
           </div>
@@ -139,9 +147,9 @@ export default function NotificationPrompt({ userId }: NotificationPromptProps) 
               border: 'none',
             }}
           >
-            Not now
+            {needsHomeScreen ? 'Got it' : 'Not now'}
           </button>
-          <button
+          {!needsHomeScreen && <button
             onClick={handleEnable}
             disabled={isLoading}
             className="flex-1 py-2 px-4 rounded-xl transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
@@ -167,7 +175,7 @@ export default function NotificationPrompt({ userId }: NotificationPromptProps) 
                 Enable
               </>
             )}
-          </button>
+          </button>}
         </div>
       </div>
     </div>

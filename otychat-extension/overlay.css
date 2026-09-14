@@ -500,3 +500,154 @@
   border: 3px solid #f0f0f0 !important;
   background: #ffffeb !important;
 }
+
+/* ============================================
+   ROOM MOMENTS
+   ============================================ */
+
+.otychat-toasts {
+  position: absolute !important;
+  top: 32px !important;
+  right: 32px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  pointer-events: none !important;
+  z-index: 999997 !important;
+}
+
+.otychat-toast {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  background: #ffffff !important;
+  border-radius: 18px !important;
+  padding: 14px 20px !important;
+  min-width: 300px !important;
+  max-width: 460px !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2) !important;
+  border-left: 6px solid #8b5cf6 !important;
+  font-family: 'Fredoka', 'Nunito', system-ui, sans-serif !important;
+  color: #1f2937 !important;
+  animation: otychat-toast-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), otychat-fade-out 0.5s ease-in 3.5s forwards !important;
+}
+
+@keyframes otychat-toast-in {
+  from { opacity: 0; transform: translateX(80px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes otychat-fade-out {
+  to { opacity: 0; transform: translateY(-10px); }
+}
+
+.otychat-toast-icon { font-size: 30px !important; line-height: 1 !important; }
+.otychat-toast-title { font-size: 15px !important; font-weight: 700 !important; color: #8b5cf6 !important; }
+.otychat-toast-message { font-size: 17px !important; font-weight: 600 !important; }
+
+/* Centre bursts */
+.otychat-catch,
+.otychat-levelup,
+.otychat-kudos {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  /* Fully opaque: slide text ghosts through anything translucent on a projector */
+  background: #ffffff !important;
+  border-radius: 32px !important;
+  padding: 40px 56px !important;
+  text-align: center !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25) !important;
+  font-family: 'Fredoka', 'Nunito', system-ui, sans-serif !important;
+  color: #1f2937 !important;
+  pointer-events: none !important;
+  z-index: 999997 !important;
+  animation: otychat-burst 4s ease-out forwards !important;
+}
+
+.otychat-kudos { animation-duration: 3.5s !important; }
+
+@keyframes otychat-burst {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+  12% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+  20% { transform: translate(-50%, -50%) scale(1); }
+  85% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(0.85); }
+}
+
+.otychat-catch.shiny {
+  border: 4px solid gold !important;
+  background: linear-gradient(135deg, #fff3c4 0%, #ffffff 50%, #ffdbe4 100%) !important;
+}
+
+.otychat-catch-sprite {
+  width: 180px !important;
+  height: 180px !important;
+  object-fit: contain !important;
+  image-rendering: pixelated !important;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.2)) !important;
+}
+
+.otychat-catch-who { font-size: 30px !important; font-weight: 700 !important; color: #8b5cf6 !important; margin-top: 8px !important; }
+.otychat-catch-name { font-size: 48px !important; font-weight: 700 !important; }
+.otychat-catch-shiny {
+  display: inline-block !important;
+  margin-top: 12px !important;
+  padding: 8px 20px !important;
+  border-radius: 20px !important;
+  background: linear-gradient(135deg, #ffd700 0%, #ff69b4 100%) !important;
+  color: #fff !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  animation: otychat-sparkle 0.5s infinite alternate !important;
+}
+
+@keyframes otychat-sparkle {
+  from { box-shadow: 0 0 10px #ffd700; }
+  to { box-shadow: 0 0 25px #ff69b4, 0 0 40px #ffd700; }
+}
+
+.otychat-levelup { border: 4px solid #fbbf24 !important; }
+.otychat-levelup-stars { font-size: 40px !important; }
+.otychat-levelup-title { font-size: 44px !important; font-weight: 700 !important; color: #f59e0b !important; letter-spacing: 2px !important; }
+.otychat-levelup-who { font-size: 30px !important; font-weight: 700 !important; margin-top: 6px !important; }
+.otychat-levelup-level { font-size: 26px !important; font-weight: 600 !important; color: #8b5cf6 !important; }
+
+.otychat-kudos-heart { font-size: 72px !important; animation: otychat-popcorn-bounce 0.5s ease-in-out infinite alternate !important; }
+.otychat-kudos-line { font-size: 30px !important; font-weight: 600 !important; margin-top: 8px !important; }
+.otychat-kudos-from { color: #ec4899 !important; font-weight: 700 !important; }
+.otychat-kudos-to { color: #8b5cf6 !important; font-weight: 700 !important; }
+.otychat-kudos-message { font-size: 22px !important; color: #6b7280 !important; margin-top: 8px !important; }
+
+/* Doodles pop in at the bottom-left */
+.otychat-doodle {
+  position: absolute !important;
+  bottom: 48px !important;
+  left: 48px !important;
+  background: #ffffeb !important;
+  border-radius: 20px !important;
+  padding: 16px !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25) !important;
+  font-family: 'Fredoka', 'Nunito', system-ui, sans-serif !important;
+  color: #1f2937 !important;
+  pointer-events: none !important;
+  z-index: 999996 !important;
+  transform: rotate(-2deg) !important;
+  animation: otychat-doodle-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), otychat-fade-out 0.6s ease-in 5.3s forwards !important;
+}
+
+@keyframes otychat-doodle-in {
+  from { opacity: 0; transform: rotate(-2deg) translateY(60px) scale(0.8); }
+  to { opacity: 1; transform: rotate(-2deg) translateY(0) scale(1); }
+}
+
+.otychat-doodle img {
+  display: block !important;
+  max-width: 360px !important;
+  max-height: 260px !important;
+  border-radius: 12px !important;
+}
+
+.otychat-doodle-author { font-size: 18px !important; font-weight: 700 !important; color: #8b5cf6 !important; margin-bottom: 8px !important; }
+.otychat-doodle-text { font-size: 22px !important; font-weight: 600 !important; margin-top: 8px !important; max-width: 360px !important; }

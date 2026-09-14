@@ -572,6 +572,39 @@ function sendPokedex(socket, userId) {
     odSpriteUrl: pokemon.getSpriteUrl(p.pokemon_id, p.is_shiny === 1)
   }));
   socket.emit('pokedex-data', caught);
+  sendEvolvable(socket, userId);
+}
+
+/**
+ * Which of this user's Pokemon can evolve right now, and how. Sent with the
+ * pokedex so the Evolve panel never goes stale.
+ */
+function sendEvolvable(socket, userId) {
+  const user = db.getUserById(userId);
+  if (!user) return;
+  const stones = db.getStoneInventory(userId);
+  const uniqueIds = [...new Set(db.getUserPokemon(userId).map(p => p.pokemon_id))];
+
+  const evolvable = [];
+  for (const pokemonId of uniqueIds) {
+    const options = pokemon.getAvailableEvolutions(pokemonId, user.trainer_level, stones);
+    if (options.length === 0) continue;
+    const data = pokemon.getPokemonData(pokemonId);
+    evolvable.push({
+      pokemonId,
+      name: data ? data.name : `#${pokemonId}`,
+      sprite: pokemon.getSpriteUrl(pokemonId, false),
+      options: options.map(o => ({
+        method: o.type,
+        stone: o.stone || null,
+        toId: o.to,
+        toName: o.name,
+        toSprite: pokemon.getSpriteUrl(o.to, false),
+        requirement: o.requirement
+      }))
+    });
+  }
+  socket.emit('evolvable-data', evolvable);
 }
 
 function checkAndEmitAchievements(socket, userId, context = {}) {
@@ -634,6 +667,34 @@ function createSpawnForSocket(socket) {
 }
 
 /**
+ * Send a spawn to its owner's phone, and a push in case the phone is in a pocket.
+ */
+function emitSpawn(socket, spawn) {
+  socket.emit('pokemon-spawn', {
+    odId: spawn.odId,
+    pokemonId: spawn.pokemon.id,
+    pokemonName: spawn.pokemon.name,
+    rarity: spawn.pokemon.rarity,
+    isShiny: spawn.isShiny,
+    zone: spawn.zone,
+    sprite: pokemon.getSpriteUrl(spawn.pokemon.id, spawn.isShiny),
+    animatedSprite: pokemon.getAnimatedSpriteUrl(spawn.pokemon.id, spawn.isShiny),
+    expiresAt: spawn.expiresAt,
+    catchWindow: pokemon.CATCH_WINDOW,
+    quickCatchWindow: pokemon.QUICK_CATCH_WINDOW
+  });
+
+  push.sendNotification(socket.data.userId, {
+    title: `A wild ${spawn.isShiny ? 'SHINY ' : ''}${spawn.pokemon.name} appeared!`,
+    body: `${Math.round(pokemon.CATCH_WINDOW / 1000)} seconds to catch it`,
+    tag: 'pokemon-spawn',
+    url: '/'
+  });
+
+  console.log(`[Pokemon] ${spawn.pokemon.name} spawned for ${socket.data.username} in ${spawn.zone}${spawn.isShiny ? ' (SHINY!)' : ''}`);
+}
+
+/**
  * Trigger global spawn - creates per-user spawns for all connected users
  */
 function triggerGlobalSpawn() {
@@ -644,27 +705,28 @@ function triggerGlobalSpawn() {
     if (!socket || !socket.data.userId) return;
 
     const spawn = createSpawnForSocket(socket);
-    if (spawn) {
-      socket.emit('pokemon-spawn', {
-        odId: spawn.odId,
-        pokemonId: spawn.pokemon.id,
-        pokemonName: spawn.pokemon.name,
-        rarity: spawn.pokemon.rarity,
-        isShiny: spawn.isShiny,
-        zone: spawn.zone,
-        sprite: pokemon.getSpriteUrl(spawn.pokemon.id, spawn.isShiny),
-        animatedSprite: pokemon.getAnimatedSpriteUrl(spawn.pokemon.id, spawn.isShiny),
-        expiresAt: spawn.expiresAt,
-        catchWindow: pokemon.CATCH_WINDOW,
-        quickCatchWindow: pokemon.QUICK_CATCH_WINDOW
-      });
-
-      console.log(`[Pokemon] ${spawn.pokemon.name} spawned for ${data.username} in ${spawn.zone}${spawn.isShiny ? ' (SHINY!)' : ''}`);
-    }
+    if (spawn) emitSpawn(socket, spawn);
   });
 
   // Notify display
   emitToDisplay('pokemon-spawn-wave', { count: connectedUsers.size });
+}
+
+/**
+ * Incense: an extra personal spawn every couple of minutes while it burns.
+ * Runs on its own timer so it is independent of the global wave.
+ */
+const INCENSE_INTERVAL_MS = 2 * 60 * 1000;
+function triggerIncenseSpawns() {
+  connectedUsers.forEach((data, socketId) => {
+    const socket = io.sockets.sockets.get(socketId);
+    if (!socket || !socket.data.userId) return;
+    if (userSpawns.has(socket.data.userId)) return;
+    if (!db.hasActiveEffect(socket.data.userId, 'incense')) return;
+
+    const spawn = createSpawnForSocket(socket);
+    if (spawn) emitSpawn(socket, spawn);
+  });
 }
 
 // ============================================
@@ -1760,6 +1822,7 @@ io.on('connection', (socket) => {
 
       case 'stone':
         db.updateStoneInventory(socket.data.userId, item.stoneType, 1);
+        sendEvolvable(socket, socket.data.userId);
         break;
 
       case 'effect':
@@ -1924,6 +1987,7 @@ async function startServer() {
     pokemon.startAutoSpawn(() => {
       triggerGlobalSpawn();
     });
+    setInterval(triggerIncenseSpawns, INCENSE_INTERVAL_MS);
 
     // Any non-API, non-file path is the React app (deep links, PWA start_url).
     app.get(/^\/(?!api\/|socket\.io\/).*/, (req, res, next) => {

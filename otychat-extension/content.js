@@ -108,7 +108,9 @@
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionDelay: 1000,
-        reconnectionAttempts: 10
+        reconnectionDelayMax: 10000,
+        // A redeploy or a sleeping laptop must not kill the overlay for the night
+        reconnectionAttempts: Infinity
       });
 
       socket.on('connect', () => {
@@ -145,6 +147,15 @@
       socket.on('chat-upvoted', (data) => {
         updateQuestionVotes(data);
       });
+
+      // Social moments from the room
+      socket.on('pokemon-caught', (data) => showPokemonCaught(data));
+      socket.on('level-up', (data) => showLevelUp(data));
+      socket.on('kudos', (data) => showKudos(data));
+      socket.on('achievement-unlocked', (data) => showToast('🏆', 'Achievement unlocked', `${data.username}: ${data.achievement}`, data.icon));
+      socket.on('drink-logged', (data) => showToast('🍺', 'Cheers!', `${data.username} logged drink #${data.count}`));
+      socket.on('drawing-blast', (data) => showDrawingBlast(data));
+      socket.on('pokemon-spawn-wave', () => showToast('🌿', 'Wild Pokémon appeared!', 'Check your phones'));
 
       // Popcorn Emergency
       socket.on('popcorn-emergency-start', (data) => {
@@ -335,6 +346,94 @@
     if (shownQuestionId === null || String(data.messageId) !== shownQuestionId) return;
     const votes = document.getElementById('otychat-question-votes');
     if (votes) votes.textContent = `👍 ${data.votes}`;
+  }
+
+  // ============================================
+  // ROOM MOMENTS (catches, level-ups, kudos, toasts, doodles)
+  // ============================================
+
+  const SPRITE_BASE = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon';
+
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  function mount(node, lifetimeMs) {
+    overlayContainer.appendChild(node);
+    setTimeout(() => node.remove(), lifetimeMs);
+  }
+
+  function toastStack() {
+    let stack = document.getElementById('otychat-toasts');
+    if (!stack) {
+      stack = el('div', 'otychat-toasts');
+      stack.id = 'otychat-toasts';
+      overlayContainer.appendChild(stack);
+    }
+    return stack;
+  }
+
+  function showToast(icon, title, message, iconOverride) {
+    const toast = el('div', 'otychat-toast');
+    toast.appendChild(el('div', 'otychat-toast-icon', iconOverride || icon));
+    const info = el('div', 'otychat-toast-info');
+    info.appendChild(el('div', 'otychat-toast-title', title));
+    info.appendChild(el('div', 'otychat-toast-message', message));
+    toast.appendChild(info);
+    const stack = toastStack();
+    stack.appendChild(toast);
+    // A burst of achievements must not wallpaper the slide
+    while (stack.children.length > 4) stack.firstChild.remove();
+    setTimeout(() => toast.remove(), 4000);
+  }
+
+  function showPokemonCaught(data) {
+    const card = el('div', 'otychat-catch' + (data.isShiny ? ' shiny' : ''));
+    const img = el('img', 'otychat-catch-sprite');
+    img.src = `${SPRITE_BASE}/${data.isShiny ? 'shiny/' : ''}${data.pokemonId}.png`;
+    img.alt = '';
+    card.appendChild(img);
+    card.appendChild(el('div', 'otychat-catch-who', `${data.username} caught`));
+    card.appendChild(el('div', 'otychat-catch-name', `${data.pokemonName}${data.isShiny ? ' ✨' : ''}`));
+    if (data.isShiny) card.appendChild(el('div', 'otychat-catch-shiny', '✨ SHINY ✨'));
+    mount(card, 4000);
+  }
+
+  function showLevelUp(data) {
+    const card = el('div', 'otychat-levelup');
+    card.appendChild(el('div', 'otychat-levelup-stars', '⭐✨⭐'));
+    card.appendChild(el('div', 'otychat-levelup-title', 'LEVEL UP'));
+    card.appendChild(el('div', 'otychat-levelup-who', data.username));
+    card.appendChild(el('div', 'otychat-levelup-level', `Level ${data.level}`));
+    mount(card, 4000);
+  }
+
+  function showKudos(data) {
+    const card = el('div', 'otychat-kudos');
+    card.appendChild(el('div', 'otychat-kudos-heart', '💖'));
+    const line = el('div', 'otychat-kudos-line');
+    line.appendChild(el('span', 'otychat-kudos-from', data.fromUsername));
+    line.appendChild(el('span', '', ' sent kudos to '));
+    line.appendChild(el('span', 'otychat-kudos-to', data.toUsername));
+    card.appendChild(line);
+    if (data.message) card.appendChild(el('div', 'otychat-kudos-message', `"${data.message}"`));
+    mount(card, 3500);
+  }
+
+  function showDrawingBlast(data) {
+    const card = el('div', 'otychat-doodle');
+    card.appendChild(el('div', 'otychat-doodle-author', data.username));
+    if (data.drawing) {
+      const img = el('img');
+      img.src = data.drawing;
+      img.alt = '';
+      card.appendChild(img);
+    }
+    if (data.text) card.appendChild(el('div', 'otychat-doodle-text', data.text));
+    mount(card, 6000);
   }
 
   // ============================================

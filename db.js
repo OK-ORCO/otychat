@@ -311,11 +311,27 @@ async function initDatabase() {
 // HELPER FUNCTIONS
 // ============================================
 
+// SQLite's CURRENT_TIMESTAMP is UTC with no zone marker ("2026-09-14 20:05:07").
+// Browsers parse that as local time, which put chat times hours off. Hand out
+// ISO strings with an explicit Z instead.
+const TIMESTAMP_COLUMNS = /^(created|caught|sent|unlocked|started|ended|purchased)_at$/;
+const SQLITE_TS = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+
+function normalizeRow(row) {
+  for (const key of Object.keys(row)) {
+    const value = row[key];
+    if (typeof value === 'string' && TIMESTAMP_COLUMNS.test(key) && SQLITE_TS.test(value)) {
+      row[key] = value.replace(' ', 'T') + 'Z';
+    }
+  }
+  return row;
+}
+
 function queryOne(sql, params = []) {
   const stmt = db.prepare(sql);
   stmt.bind(params);
   if (stmt.step()) {
-    const row = stmt.getAsObject();
+    const row = normalizeRow(stmt.getAsObject());
     stmt.free();
     return row;
   }
@@ -328,7 +344,7 @@ function queryAll(sql, params = []) {
   stmt.bind(params);
   const results = [];
   while (stmt.step()) {
-    results.push(stmt.getAsObject());
+    results.push(normalizeRow(stmt.getAsObject()));
   }
   stmt.free();
   return results;

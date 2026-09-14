@@ -53,6 +53,12 @@ export default function ReactTab({ username, onOpenDM }: ReactTabProps) {
   // Sort messages chronologically (oldest first)
   const sortedMessages = [...chatMessages];
 
+  // The presenter works the queue by popularity, then age
+  const rankedQueue = [...queueMessages].sort((a, b) =>
+    b.odUpvotes - a.odUpvotes || new Date(a.odCreatedAt).getTime() - new Date(b.odCreatedAt).getTime()
+  );
+  const nextUp = rankedQueue.find(m => m.odId !== displayedMessageId) || null;
+
   if (selectedUser) {
     return (
       <UserProfile
@@ -361,7 +367,44 @@ export default function ReactTab({ username, onOpenDM }: ReactTabProps) {
               </div>
             </div>
 
-            {/* Queue List */}
+            {/* Presenter controls */}
+            {queueMessages.length > 0 && (
+              <div className="flex gap-2 mb-3">
+                <button
+                  onClick={() => nextUp && showOnDisplay(nextUp.odId)}
+                  disabled={!nextUp}
+                  className="flex-1 py-3 rounded-xl transition-all active:scale-95"
+                  style={{
+                    background: nextUp ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'var(--bg-secondary)',
+                    color: nextUp ? 'white' : 'var(--text-muted)',
+                    border: 'none',
+                    fontFamily: 'Fredoka, sans-serif',
+                    fontSize: '14px',
+                    fontWeight: '700'
+                  }}
+                >
+                  📺 Show next{nextUp ? ` (👍 ${nextUp.odUpvotes})` : ''}
+                </button>
+                {displayedMessageId && (
+                  <button
+                    onClick={() => dismissFromQueue(displayedMessageId)}
+                    className="flex-1 py-3 rounded-xl transition-all active:scale-95"
+                    style={{
+                      background: 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)',
+                      color: 'white',
+                      border: 'none',
+                      fontFamily: 'Fredoka, sans-serif',
+                      fontSize: '14px',
+                      fontWeight: '700'
+                    }}
+                  >
+                    ✓ Done with this one
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Queue List, most upvoted first */}
             <div className="flex-1 overflow-y-auto space-y-3">
               {queueMessages.length === 0 ? (
                 <div className="p-8 text-center">
@@ -381,13 +424,13 @@ export default function ReactTab({ username, onOpenDM }: ReactTabProps) {
                   </p>
                 </div>
               ) : (
-                queueMessages.map((item) => (
+                rankedQueue.map((item) => (
                   <div
                     key={item.odId}
                     className="p-3 rounded-xl"
                     style={{
-                      background: 'var(--bg-secondary)',
-                      border: '2px solid #f59e0b'
+                      background: displayedMessageId === item.odId ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-secondary)',
+                      border: displayedMessageId === item.odId ? '2px solid #10b981' : '2px solid #f59e0b'
                     }}
                   >
                     <div className="flex items-start gap-3">

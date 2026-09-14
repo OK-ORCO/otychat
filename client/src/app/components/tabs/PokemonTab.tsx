@@ -27,6 +27,7 @@ export default function PokemonTab() {
     user,
     activePokemon,
     caughtPokemon,
+    evolvable,
     catchResult,
     clearCatchResult,
     ballInventory,
@@ -34,7 +35,8 @@ export default function PokemonTab() {
     zones,
     catchPokemon,
     runFromPokemon,
-    changeZone
+    changeZone,
+    evolvePokemon
   } = useSocket();
 
   // XP progress within the current level, using the server's thresholds
@@ -252,6 +254,54 @@ export default function PokemonTab() {
           </div>
         </div>
       </div>
+
+      {/* Evolutions available right now */}
+      {evolvable.length > 0 && (
+        <div className="p-5 rounded-3xl" style={{
+          background: 'white',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+          border: '2px solid #a855f7'
+        }}>
+          <h3 className="mb-1" style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '16px', color: 'var(--text)', fontWeight: '700' }}>
+            🌟 Ready to evolve
+          </h3>
+          <p className="mb-3" style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+            Stones are used up. Level evolutions are free.
+          </p>
+          <div className="space-y-3">
+            {evolvable.map(e => (
+              <div key={e.pokemonId} className="p-3 rounded-2xl" style={{ background: 'var(--bg-secondary)' }}>
+                <div className="flex items-center gap-3 mb-2">
+                  <img src={e.sprite} alt={e.name} style={{ width: 40, height: 40, imageRendering: 'pixelated' }} />
+                  <span style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '15px', fontWeight: '700', color: 'var(--text)' }}>{e.name}</span>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {e.options.map(o => (
+                    <button
+                      key={`${o.method}-${o.stone || 'level'}-${o.toId}`}
+                      onClick={() => evolvePokemon(e.pokemonId, o.method, o.stone || undefined)}
+                      className="flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all active:scale-95"
+                      style={{
+                        background: 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
+                        color: 'white',
+                        border: 'none'
+                      }}
+                    >
+                      <img src={o.toSprite} alt={o.toName} style={{ width: 32, height: 32, imageRendering: 'pixelated' }} />
+                      <span style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '14px', fontWeight: '700' }}>
+                        Evolve into {o.toName}
+                      </span>
+                      <span className="ml-auto" style={{ fontSize: '11px', opacity: 0.85 }}>
+                        {o.method === 'stone' ? `uses ${o.requirement}` : o.requirement}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Ball Inventory */}
       <div className="p-5 rounded-3xl" style={{

@@ -20,7 +20,7 @@ interface MainAppProps {
 }
 
 export default function MainApp({ username }: MainAppProps) {
-  const { unreadDMCount, user, emergency } = useSocket();
+  const { unreadDMCount, user, emergency, activePokemon } = useSocket();
   const profilePic = user?.odProfilePic || '👤';
   const userId = user?.odUserId || null;
   const [activeTab, setActiveTab] = useState<Tab>('feed');
@@ -73,6 +73,7 @@ export default function MainApp({ username }: MainAppProps) {
           icon="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png"
           label="Pokémon"
           active={activeTab === 'pokemon'}
+          badge={activePokemon && activeTab !== 'pokemon' ? '!' : undefined}
           onClick={() => setActiveTab('pokemon')}
         />
         <TabButton
@@ -104,7 +105,7 @@ interface TabButtonProps {
   icon: string;
   label: string;
   active: boolean;
-  badge?: number;
+  badge?: number | string;
   isProfilePic?: boolean;
   isSprite?: boolean;
   onClick: () => void;

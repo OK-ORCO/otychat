@@ -181,6 +181,22 @@ export interface UserProfileData {
   recentPokemon: { pokemonId: number; name: string; isShiny: boolean; caughtAt: string; sprite: string }[];
 }
 
+export interface EvolutionOption {
+  method: 'level' | 'stone';
+  stone: string | null;
+  toId: number;
+  toName: string;
+  toSprite: string;
+  requirement: string;
+}
+
+export interface Evolvable {
+  pokemonId: number;
+  name: string;
+  sprite: string;
+  options: EvolutionOption[];
+}
+
 export interface CatchResult {
   kind: 'caught' | 'failed';
   message: string;
@@ -224,6 +240,7 @@ interface SocketContextType {
   feed: FeedItem[];
   activePokemon: Pokemon | null;
   caughtPokemon: Pokemon[];
+  evolvable: Evolvable[];
   catchResult: CatchResult | null;
   ballInventory: BallInventory;
   stoneInventory: StoneInventory;
@@ -315,6 +332,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [activePokemon, setActivePokemon] = useState<Pokemon | null>(null);
   const [caughtPokemon, setCaughtPokemon] = useState<Pokemon[]>([]);
+  const [evolvable, setEvolvable] = useState<Evolvable[]>([]);
   const [catchResult, setCatchResult] = useState<CatchResult | null>(null);
   const [ballInventory, setBallInventory] = useState<BallInventory>({ great: 0, ultra: 0, master: 0 });
   const [stoneInventory, setStoneInventory] = useState<StoneInventory>(EMPTY_STONES);
@@ -734,6 +752,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         message: `A wild ${data.isShiny ? 'shiny ' : ''}${data.pokemonName} appeared!`,
         icon: data.isShiny ? '✨' : '🌿',
       });
+      showNotice(`${data.isShiny ? '✨ SHINY ' : '🌿 '}${data.pokemonName} appeared! Go to the Pokémon tab`, data.isShiny ? 'success' : 'info');
+      if (navigator.vibrate) navigator.vibrate(data.isShiny ? [100, 50, 100, 50, 300] : [150, 80, 150]);
+    });
+
+    newSocket.on('evolvable-data', (list: Evolvable[]) => {
+      setEvolvable(Array.isArray(list) ? list : []);
     });
 
     newSocket.on('pokemon-caught', (data: {
@@ -1184,6 +1208,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       feed,
       activePokemon,
       caughtPokemon,
+      evolvable,
       catchResult,
       ballInventory,
       stoneInventory,

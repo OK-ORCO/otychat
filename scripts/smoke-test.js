@@ -223,6 +223,9 @@ async function main() {
     const m = await got;
     assert(m.username === 'alice', 'author');
     assert(m.in_queue === 0, 'not queued');
+    // SQLite stamps UTC; the phone must receive an unambiguous ISO string
+    assert(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(m.created_at), `timestamp ${m.created_at}`);
+    assert(Math.abs(Date.now() - new Date(m.created_at).getTime()) < 60000, 'timestamp is now, not hours off');
     chatId = m.id;
   });
 
@@ -381,6 +384,27 @@ async function main() {
     const [p, s] = await Promise.all([purchase, stats]);
     assert(p.newBalance === before.coins - 200, `balance ${p.newBalance} vs ${before.coins - 200}`);
     assert(s.coins === p.newBalance, 'stats agree with purchase');
+  });
+
+  await test('evolvable list is sent and a stone evolution works', async () => {
+    // grant-pokemon gave Eevee plus fire/water/thunder stones; rejoin to get the list
+    alice.disconnect();
+    const s3 = connect();
+    await waitFor(s3, 'connect');
+    const evolvable = waitFor(s3, 'evolvable-data', list => list.some(e => e.pokemonId === 133));
+    s3.emit('join', { username: 'alice', password: 'pw-a' });
+    const list = await evolvable;
+    alice = s3;
+    const eevee = list.find(e => e.pokemonId === 133);
+    const fire = eevee.options.find(o => o.method === 'stone' && o.stone === 'fire_stone');
+    assert(fire && fire.toName === 'Flareon' && fire.toSprite, JSON.stringify(eevee));
+
+    const evolved = waitFor(alice, 'pokemon-evolved');
+    const dex = waitFor(alice, 'pokedex-data', d => d.some(p => p.odPokemonId === 136));
+    const stones = waitFor(alice, 'trainer-stats', t => t.stones.fire_stone === 1);
+    alice.emit('evolve-pokemon', { pokemonId: 133, method: 'stone', stone: 'fire_stone' });
+    const [ev] = await Promise.all([evolved, dex, stones]);
+    assert(ev.toName === 'Flareon', 'evolved name');
   });
 
   await test('user profile lookup returns real data', async () => {
