@@ -2334,10 +2334,17 @@ async function startServer() {
     setInterval(triggerIncenseSpawns, INCENSE_INTERVAL_MS);
 
     // Any non-API, non-file path is the React app (deep links, PWA start_url).
+    const indexPath = path.join(REACT_BUILD_DIR, 'index.html');
+    if (!fs.existsSync(indexPath)) {
+      console.warn(`[Server] No client build at ${REACT_BUILD_DIR}. Run "npm run build" (Railway: check the build log for the vite step).`);
+    }
     app.get(/^\/(?!api\/|socket\.io\/).*/, (req, res, next) => {
-      const indexPath = path.join(REACT_BUILD_DIR, 'index.html');
-      if (!fs.existsSync(indexPath)) return next();
-      res.sendFile(indexPath);
+      if (fs.existsSync(indexPath)) return res.sendFile(indexPath);
+      if (req.path !== '/') return next();
+      res.status(503).type('html').send(
+        '<h1 style="font-family:sans-serif">OtyChat server is running, but the phone app has not been built.</h1>' +
+        '<p style="font-family:sans-serif">Run <code>npm run build</code> before <code>npm start</code>. On Railway, check the build log for the Vite step.</p>'
+      );
     });
 
     // Railway sends SIGTERM on redeploy; flush the SQLite file before exiting.
