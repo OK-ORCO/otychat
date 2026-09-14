@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSocket } from '../../../contexts/SocketContext';
+import { UI_SPRITES } from '../../data/pokemon-data';
 
 // Color mapping for feed item types
 const TYPE_COLORS: Record<string, string> = {
@@ -15,11 +16,15 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 const LEADERBOARD_TYPES = [
-  { key: 'xp', label: 'XP Leaders', icon: '⚡', color: '#fbbf24' },
+  { key: 'xp', label: 'XP Leaders', icon: UI_SPRITES.xpLeader, color: '#fbbf24', isSprite: true },
   { key: 'pokemon', label: 'Top Catchers', icon: '🎯', color: '#10b981' },
-  { key: 'shiny', label: 'Shiny Hunters', icon: '✨', color: '#ec4899' },
-  { key: 'reactions', label: 'Most Active', icon: '🎭', color: '#8b5cf6' },
+  { key: 'shiny', label: 'Shiny Hunters', icon: UI_SPRITES.shinyLeader, color: '#ec4899', isSprite: true },
+  { key: 'drinks', label: 'Most Drinks', icon: '🍺', color: '#f97316' },
 ] as const;
+
+function SpriteIcon({ src, size = 20 }: { src: string; size?: number }) {
+  return <img src={src} alt="" style={{ width: size, height: size, imageRendering: 'pixelated' }} />;
+}
 
 export default function FeedTab() {
   const { feed, user, leaderboards, onlineUsers } = useSocket();
@@ -50,7 +55,7 @@ export default function FeedTab() {
           boxShadow: '0 4px 12px rgba(251, 191, 36, 0.3)'
         }}>
           <div className="flex items-center gap-2">
-            <span className="text-xl">⚡</span>
+            <SpriteIcon src={UI_SPRITES.levelUp} size={24} />
             <div>
               <p style={{
                 fontFamily: 'Fredoka, sans-serif',
@@ -76,7 +81,7 @@ export default function FeedTab() {
           boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
         }}>
           <div className="flex items-center gap-2">
-            <span className="text-xl">🪙</span>
+            <SpriteIcon src={UI_SPRITES.coin} size={24} />
             <div>
               <p style={{
                 fontFamily: 'Fredoka, sans-serif',
@@ -102,7 +107,7 @@ export default function FeedTab() {
           boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
         }}>
           <div className="flex items-center gap-2">
-            <span className="text-xl">👥</span>
+            <SpriteIcon src={UI_SPRITES.online} size={24} />
             <div>
               <p style={{
                 fontFamily: 'Fredoka, sans-serif',
@@ -136,7 +141,11 @@ export default function FeedTab() {
             borderBottom: '1px solid rgba(0,0,0,0.05)'
           }}>
             <div className="flex items-center gap-3">
-              <span className="text-2xl">{currentLeaderboardType.icon}</span>
+              {'isSprite' in currentLeaderboardType && currentLeaderboardType.isSprite ? (
+                <SpriteIcon src={currentLeaderboardType.icon} size={28} />
+              ) : (
+                <span className="text-2xl">{currentLeaderboardType.icon}</span>
+              )}
               <div>
                 <h3 style={{
                   fontFamily: 'Fredoka, sans-serif',
@@ -171,7 +180,7 @@ export default function FeedTab() {
                     transform: activeLeaderboard === idx ? 'scale(1.1)' : 'scale(1)'
                   }}
                 >
-                  <span style={{ fontSize: '14px' }}>{type.icon}</span>
+                  {'isSprite' in type && type.isSprite ? <SpriteIcon src={type.icon} size={16} /> : <span style={{ fontSize: '14px' }}>{type.icon}</span>}
                 </button>
               ))}
             </div>

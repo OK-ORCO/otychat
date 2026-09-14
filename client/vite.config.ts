@@ -15,6 +15,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    host: true,
     proxy: {
       // Proxy socket.io requests to Express backend
       '/socket.io': {

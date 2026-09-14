@@ -1,16 +1,34 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSocket } from '../../../contexts/SocketContext';
-import { getSpriteUrl, getPokemonName, RARITY_COLORS, BALL_SPRITES, STONE_SPRITES } from '../../data/pokemon-data';
+import { getSpriteUrl, getPokemonName, RARITY_COLORS, BALL_SPRITES, STONE_SPRITES, UI_SPRITES } from '../../data/pokemon-data';
 import Pokedex from '../Pokedex';
 import Shop from '../Shop';
 
 type SubPage = 'pokedex' | 'shop' | 'zones' | null;
+// Sprite icon component for consistent sizing
+function SpriteIcon({ src, alt, size = 24 }: { src: string; alt: string; size?: number }) {
+  return (
+    <img
+      src={src}
+      alt={alt}
+      style={{
+        width: size,
+        height: size,
+        imageRendering: 'pixelated',
+        objectFit: 'contain'
+      }}
+    />
+  );
+}
+
 
 export default function PokemonTab() {
   const {
     user,
     activePokemon,
     caughtPokemon,
+    catchResult,
+    clearCatchResult,
     ballInventory,
     stoneInventory,
     zones,
@@ -19,11 +37,14 @@ export default function PokemonTab() {
     changeZone
   } = useSocket();
 
-  // XP calculation for progress bar
+  // XP progress within the current level, using the server's thresholds
   const currentXp = user?.odTrainerXp || 0;
   const currentLevel = user?.odTrainerLevel || 1;
-  const xpForNextLevel = currentLevel * 100; // Simple formula: level * 100 XP to level up
-  const xpProgress = (currentXp % xpForNextLevel) / xpForNextLevel * 100;
+  const levelFloor = user?.odXpForCurrentLevel || 0;
+  const xpForNextLevel = user?.odXpForNextLevel ?? null;
+  const xpProgress = xpForNextLevel === null
+    ? 100
+    : Math.min(100, Math.max(0, ((currentXp - levelFloor) / (xpForNextLevel - levelFloor)) * 100));
 
   const [currentPage, setCurrentPage] = useState<SubPage>(null);
 
@@ -73,10 +94,10 @@ export default function PokemonTab() {
         boxShadow: '0 8px 24px rgba(239, 68, 68, 0.3)'
       }}>
         <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl" style={{
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{
             background: 'rgba(255, 255, 255, 0.2)'
           }}>
-            ⚡
+            <SpriteIcon src={UI_SPRITES.xp} alt="XP" size={40} />
           </div>
           <div className="flex-1 text-white">
             <h2 style={{
@@ -101,7 +122,9 @@ export default function PokemonTab() {
         <div className="mt-4">
           <div className="flex items-center justify-between text-white text-xs mb-1">
             <span style={{ fontFamily: 'Fredoka, sans-serif' }}>XP Progress</span>
-            <span style={{ fontFamily: 'Fredoka, sans-serif' }}>{currentXp} / {xpForNextLevel} XP</span>
+            <span style={{ fontFamily: 'Fredoka, sans-serif' }}>
+              {xpForNextLevel === null ? `${currentXp} XP (max level)` : `${currentXp} / ${xpForNextLevel} XP`}
+            </span>
           </div>
           <div className="h-3 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.3)' }}>
             <div
@@ -115,6 +138,40 @@ export default function PokemonTab() {
           </div>
         </div>
       </div>
+
+      {/* Outcome of the last throw */}
+      {catchResult && (
+        <button
+          onClick={clearCatchResult}
+          className="w-full p-4 rounded-2xl text-left flex items-center gap-3"
+          style={{
+            background: catchResult.kind === 'caught'
+              ? 'linear-gradient(135deg, #10b981 0%, #06b6d4 100%)'
+              : catchResult.fled
+              ? 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'
+              : 'linear-gradient(135deg, #f97316 0%, #ef4444 100%)',
+            color: 'white',
+            border: 'none',
+            boxShadow: '0 6px 20px rgba(0, 0, 0, 0.15)'
+          }}
+        >
+          {catchResult.sprite ? (
+            <img src={catchResult.sprite} alt="" style={{ width: 48, height: 48, imageRendering: 'pixelated' }} />
+          ) : (
+            <span className="text-3xl">{catchResult.kind === 'caught' ? '🎉' : catchResult.fled ? '💨' : '💥'}</span>
+          )}
+          <div className="flex-1">
+            <p style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '15px', fontWeight: '700' }}>
+              {catchResult.message}
+            </p>
+            {catchResult.kind === 'caught' && (
+              <p style={{ fontSize: '12px', opacity: 0.9 }}>
+                +{catchResult.xp} XP · +{catchResult.coins} coins
+              </p>
+            )}
+          </div>
+        </button>
+      )}
 
       {/* Active Encounter */}
       {activePokemon ? (
@@ -159,7 +216,7 @@ export default function PokemonTab() {
           color: 'var(--text)',
           fontWeight: '700'
         }}>
-          📊 Trainer Stats
+          <SpriteIcon src={UI_SPRITES.xp} alt='' size={20} /> Trainer Stats
         </h3>
 
         <div className="grid grid-cols-3 gap-3">
@@ -167,7 +224,7 @@ export default function PokemonTab() {
             background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
             color: 'white'
           }}>
-            <div className="text-xl mb-1">📦</div>
+            <div className="mb-1"><SpriteIcon src={UI_SPRITES.caught} alt="Caught" size={28} /></div>
             <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '20px', fontWeight: '700' }}>
               {pokemonCaught}
             </div>
@@ -177,7 +234,7 @@ export default function PokemonTab() {
             background: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
             color: 'white'
           }}>
-            <div className="text-xl mb-1">📖</div>
+            <div className="mb-1"><SpriteIcon src={UI_SPRITES.pokedex} alt="Pokédex" size={28} /></div>
             <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '20px', fontWeight: '700' }}>
               {pokemonCaught}/386
             </div>
@@ -187,7 +244,7 @@ export default function PokemonTab() {
             background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
             color: 'white'
           }}>
-            <div className="text-xl mb-1">✨</div>
+            <div className="mb-1"><SpriteIcon src={UI_SPRITES.shiny} alt="Shiny" size={28} /></div>
             <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '20px', fontWeight: '700' }}>
               {shinyCaught}
             </div>
@@ -207,7 +264,7 @@ export default function PokemonTab() {
           color: 'var(--text)',
           fontWeight: '700'
         }}>
-          🎒 Poké Balls
+          <SpriteIcon src={UI_SPRITES.pokeball} alt="" size={20} /> Poké Balls
         </h3>
 
         <div className="grid grid-cols-4 gap-2">
@@ -253,7 +310,7 @@ export default function PokemonTab() {
           color: 'var(--text)',
           fontWeight: '700'
         }}>
-          💎 Evolution Stones
+          <SpriteIcon src={STONE_SPRITES.thunder} alt="" size={20} /> Evolution Stones
         </h3>
 
         <div className="grid grid-cols-4 gap-2">
@@ -312,20 +369,23 @@ export default function PokemonTab() {
       {/* Navigation Buttons */}
       <div className="grid grid-cols-2 gap-3">
         <NavButton
-          icon="🗺️"
+          icon={UI_SPRITES.map}
           label="Change Zone"
+          isSprite
           color="linear-gradient(135deg, #10b981 0%, #059669 100%)"
           onClick={() => setCurrentPage('zones')}
         />
         <NavButton
-          icon="📖"
+          icon={UI_SPRITES.pokedex}
           label="Pokédex"
+          isSprite
           color="linear-gradient(135deg, #ef4444 0%, #f97316 100%)"
           onClick={() => setCurrentPage('pokedex')}
         />
         <NavButton
-          icon="🛒"
+          icon={UI_SPRITES.shop}
           label="Shop"
+          isSprite
           color="linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)"
           onClick={() => setCurrentPage('shop')}
         />
@@ -333,7 +393,7 @@ export default function PokemonTab() {
           background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
           color: 'white'
         }}>
-          <span className="text-2xl">🪙</span>
+          <SpriteIcon src={UI_SPRITES.coin} alt="Coins" size={28} />
           <div>
             <div style={{ fontSize: '12px', opacity: 0.9 }}>Balance</div>
             <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '18px', fontWeight: '700' }}>
@@ -355,16 +415,30 @@ interface ActiveEncounterProps {
     odRarity: 'common' | 'uncommon' | 'rare' | 'legendary';
     odIsShiny: boolean;
     odSpriteUrl: string;
+    odExpiresAt?: number;
   };
   ballInventory: { great: number; ultra: number; master: number };
   onCatch: (odId: string, ballType: string) => void;
   onRun: () => void;
 }
 
+function useSecondsLeft(expiresAt?: number) {
+  const [left, setLeft] = useState<number | null>(null);
+  useEffect(() => {
+    if (!expiresAt) { setLeft(null); return; }
+    const tick = () => setLeft(Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000)));
+    tick();
+    const t = setInterval(tick, 500);
+    return () => clearInterval(t);
+  }, [expiresAt]);
+  return left;
+}
+
 function ActiveEncounter({ pokemon, ballInventory, onCatch, onRun }: ActiveEncounterProps) {
   // Use centralized sprite URL function
-  const spriteUrl = getSpriteUrl(pokemon.odPokemonId, pokemon.odIsShiny);
-  const pokemonName = getPokemonName(pokemon.odPokemonId);
+  const spriteUrl = pokemon.odSpriteUrl || getSpriteUrl(pokemon.odPokemonId, pokemon.odIsShiny);
+  const pokemonName = pokemon.odName || getPokemonName(pokemon.odPokemonId);
+  const secondsLeft = useSecondsLeft(pokemon.odExpiresAt);
 
   return (
     <div className="p-5 rounded-3xl" style={{
@@ -374,6 +448,11 @@ function ActiveEncounter({ pokemon, ballInventory, onCatch, onRun }: ActiveEncou
       <div className="text-center text-white">
         <div className="text-xs uppercase tracking-wider mb-2 opacity-80">
           {pokemon.odIsShiny && '✨ '}{pokemon.odRarity} Pokémon!
+          {secondsLeft !== null && (
+            <span style={{ marginLeft: 8, opacity: secondsLeft <= 5 ? 1 : 0.8, fontWeight: 700 }}>
+              ⏱ {secondsLeft}s
+            </span>
+          )}
         </div>
         <div className="w-24 h-24 mx-auto mb-3 flex items-center justify-center">
           <img
@@ -566,9 +645,10 @@ interface NavButtonProps {
   label: string;
   color: string;
   onClick: () => void;
+  isSprite?: boolean;
 }
 
-function NavButton({ icon, label, color, onClick }: NavButtonProps) {
+function NavButton({ icon, label, color, onClick, isSprite }: NavButtonProps) {
   return (
     <button
       onClick={onClick}
@@ -580,7 +660,11 @@ function NavButton({ icon, label, color, onClick }: NavButtonProps) {
         boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)'
       }}
     >
-      <span className="text-2xl">{icon}</span>
+      {isSprite ? (
+        <img src={icon} alt={label} style={{ width: 28, height: 28, imageRendering: 'pixelated' }} />
+      ) : (
+        <span className="text-2xl">{icon}</span>
+      )}
       <span style={{
         fontFamily: 'Fredoka, sans-serif',
         fontSize: '14px',

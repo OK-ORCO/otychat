@@ -112,7 +112,7 @@ export default function ProfileEditor({
           <div className="w-24 h-24 mx-auto mb-3 rounded-3xl flex items-center justify-center overflow-hidden" style={{
             background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)'
           }}>
-            {profilePic.startsWith('data:') || profilePic.startsWith('http') ? (
+            {profilePic.startsWith('data:') || profilePic.startsWith('http') || profilePic.startsWith('/') ? (
               <img src={profilePic} alt="Profile" className="w-full h-full object-cover" />
             ) : (
               <span className="text-5xl">{profilePic}</span>
@@ -165,7 +165,7 @@ export default function ProfileEditor({
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center overflow-hidden" style={{
               background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)'
             }}>
-              {profilePic.startsWith('data:') || profilePic.startsWith('http') ? (
+              {profilePic.startsWith('data:') || profilePic.startsWith('http') || profilePic.startsWith('/') ? (
                 <img src={profilePic} alt="Profile" className="w-full h-full object-cover" />
               ) : (
                 <span className="text-3xl">{profilePic}</span>

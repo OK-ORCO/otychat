@@ -17,20 +17,34 @@ socket.emit('join-display');
 // ============================================
 
 socket.on('emoji-blast', (data) => {
-  spawnEmoji(data.emoji, data.emojiUrl);
+  spawnEmoji(data.emoji, data.emojiUrl, data.userColor);
 });
 
-function spawnEmoji(emoji, emojiUrl) {
+function spawnEmoji(emoji, emojiUrl, userColor = '#ec4899') {
   const el = document.createElement('div');
   el.className = 'emoji-float';
 
+  // Apply user's color as a glowing bubble effect
+  el.style.background = `radial-gradient(circle, ${userColor}30 0%, ${userColor}10 50%, transparent 70%)`;
+  el.style.borderRadius = '50%';
+  el.style.padding = '20px';
+  el.style.boxShadow = `0 0 30px ${userColor}50, 0 0 60px ${userColor}30`;
+
   // Check if it's a custom emoji URL or a unicode emoji
-  if (emojiUrl && emojiUrl.startsWith('http')) {
+  // Handle both absolute URLs (http...) and relative paths (/emojis/...)
+  const isUrl = emoji && (emoji.startsWith('/') || emoji.startsWith('http'));
+  if (isUrl) {
+    const img = document.createElement('img');
+    // Relative paths are resolved automatically against current origin
+    img.src = emoji;
+    img.alt = 'emoji';
+    el.appendChild(img);
+  } else if (emojiUrl && (emojiUrl.startsWith('/') || emojiUrl.startsWith('http'))) {
     const img = document.createElement('img');
     img.src = emojiUrl;
-    img.alt = emoji;
+    img.alt = emoji || 'emoji';
     el.appendChild(img);
-  } else {
+  } else if (emoji) {
     el.textContent = emoji;
   }
 

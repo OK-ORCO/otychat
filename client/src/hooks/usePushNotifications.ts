@@ -5,8 +5,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
-// Base URL for API calls - use relative paths for same-origin or configure for different ports
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+// Same-origin by default: the Vite dev server proxies /api to the backend and
+// production serves the app from the backend itself.
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 interface PushNotificationState {
   isSupported: boolean;

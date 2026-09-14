@@ -7,8 +7,9 @@ const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
 
-// Database file path
-const DATA_DIR = path.join(__dirname, 'data');
+// Database file path. DATA_DIR is overridable so a hosted deploy (Railway volume)
+// can keep the database outside the repo checkout.
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DB_PATH = path.join(DATA_DIR, 'otychat.db');
 
 // Ensure data directory exists
@@ -199,6 +200,50 @@ async function initDatabase() {
 
     -- Index for quick lookup by user
     CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
+
+    -- Direct messages
+    CREATE TABLE IF NOT EXISTS direct_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      from_user_id INTEGER NOT NULL,
+      to_user_id INTEGER NOT NULL,
+      content TEXT,
+      image_data TEXT,
+      read BOOLEAN DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (from_user_id) REFERENCES users(id),
+      FOREIGN KEY (to_user_id) REFERENCES users(id)
+    );
+
+    -- Index for quick DM lookup
+    CREATE INDEX IF NOT EXISTS idx_dm_from_user ON direct_messages(from_user_id);
+    CREATE INDEX IF NOT EXISTS idx_dm_to_user ON direct_messages(to_user_id);
+
+    -- Persistent chat messages (not tied to presentations)
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      text TEXT,
+      drawing TEXT,
+      type TEXT DEFAULT 'text',
+      votes INTEGER DEFAULT 0,
+      in_queue BOOLEAN DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    -- Chat message votes (to prevent double voting)
+    CREATE TABLE IF NOT EXISTS chat_votes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      message_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      FOREIGN KEY (message_id) REFERENCES chat_messages(id),
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      UNIQUE(message_id, user_id)
+    );
+
+    -- Index for quick chat lookup
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_created ON chat_messages(created_at);
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_queue ON chat_messages(in_queue);
   `);
 
   // Migration: Add new columns to existing tables if they don't exist
@@ -234,6 +279,16 @@ async function initDatabase() {
   } catch (e) { /* column exists */ }
   try {
     db.run(`ALTER TABLE users ADD COLUMN name_color TEXT DEFAULT ''`);
+  } catch (e) { /* column exists */ }
+
+  // Password column (simple auth for friends)
+  try {
+    db.run(`ALTER TABLE users ADD COLUMN password TEXT DEFAULT ''`);
+  } catch (e) { /* column exists */ }
+
+  // Question type column for distinguishing drawings vs image attachments
+  try {
+    db.run(`ALTER TABLE questions ADD COLUMN type TEXT DEFAULT 'text'`);
   } catch (e) { /* column exists */ }
 
   // Save initial schema
@@ -294,14 +349,40 @@ function getLastInsertId() {
 // USER FUNCTIONS
 // ============================================
 
-function createUser(username) {
+function createUser(username, password = '') {
   // Try to insert, ignore if exists
-  runSql(`INSERT OR IGNORE INTO users (username) VALUES (?)`, [username]);
+  runSql(`INSERT OR IGNORE INTO users (username, password) VALUES (?, ?)`, [username, password]);
+  return queryOne(`SELECT * FROM users WHERE username = ?`, [username]);
+}
+
+function createUserWithPassword(username, password) {
+  // Insert new user with password, returns null if username already exists
+  const existing = queryOne(`SELECT * FROM users WHERE username = ?`, [username]);
+  if (existing) {
+    return null; // User already exists
+  }
+  runSql(`INSERT INTO users (username, password) VALUES (?, ?)`, [username, password]);
   return queryOne(`SELECT * FROM users WHERE username = ?`, [username]);
 }
 
 function getUserByUsername(username) {
   return queryOne(`SELECT * FROM users WHERE username = ?`, [username]);
+}
+
+function verifyPassword(username, password) {
+  const user = queryOne(`SELECT * FROM users WHERE username = ?`, [username]);
+  if (!user) return { exists: false, valid: false, user: null };
+  if (user.password === password) return { exists: true, valid: true, user };
+  return { exists: true, valid: false, user: null };
+}
+
+function getPassword(username) {
+  const user = queryOne(`SELECT password FROM users WHERE username = ?`, [username]);
+  return user ? user.password : null;
+}
+
+function setPassword(username, password) {
+  return runSql(`UPDATE users SET password = ? WHERE username = ?`, [password, username]);
 }
 
 function getUserById(id) {
@@ -365,6 +446,10 @@ function incrementQuestions(userId, presentationId) {
 
 function incrementDrinks(userId, presentationId) {
   return runSql(`UPDATE user_stats SET drinks = drinks + 1 WHERE user_id = ? AND presentation_id = ?`, [userId, presentationId]);
+}
+
+function decrementDrinks(userId, presentationId) {
+  return runSql(`UPDATE user_stats SET drinks = MAX(0, drinks - 1) WHERE user_id = ? AND presentation_id = ?`, [userId, presentationId]);
 }
 
 function getTotalDrinks(presentationId) {
@@ -716,8 +801,8 @@ function getPresentation(id) {
 // QUESTION FUNCTIONS
 // ============================================
 
-function createQuestion(userId, presentationId, text, drawing) {
-  runSql(`INSERT INTO questions (user_id, presentation_id, text, drawing) VALUES (?, ?, ?, ?)`, [userId, presentationId, text, drawing]);
+function createQuestion(userId, presentationId, text, drawing, type = 'text') {
+  runSql(`INSERT INTO questions (user_id, presentation_id, text, drawing, type) VALUES (?, ?, ?, ?, ?)`, [userId, presentationId, text, drawing, type]);
   const id = getLastInsertId();
   return queryOne(`SELECT * FROM questions WHERE id = ?`, [id]);
 }
@@ -839,6 +924,133 @@ function getAllPushSubscriptions() {
 }
 
 // ============================================
+// DIRECT MESSAGE FUNCTIONS
+// ============================================
+
+function saveDM(fromUserId, toUserId, content, imageData = null) {
+  runSql(
+    `INSERT INTO direct_messages (from_user_id, to_user_id, content, image_data) VALUES (?, ?, ?, ?)`,
+    [fromUserId, toUserId, content || '', imageData]
+  );
+  const id = getLastInsertId();
+  return queryOne(`SELECT * FROM direct_messages WHERE id = ?`, [id]);
+}
+
+function getUserDMs(userId, limit = 100) {
+  // Get all DMs where user is sender or receiver, most recent first
+  return queryAll(`
+    SELECT dm.*,
+           u_from.username as from_username,
+           u_to.username as to_username
+    FROM direct_messages dm
+    JOIN users u_from ON dm.from_user_id = u_from.id
+    JOIN users u_to ON dm.to_user_id = u_to.id
+    WHERE dm.from_user_id = ? OR dm.to_user_id = ?
+    ORDER BY dm.created_at DESC
+    LIMIT ?
+  `, [userId, userId, limit]);
+}
+
+function getConversation(userId1, userId2, limit = 50) {
+  // Get DMs between two users
+  return queryAll(`
+    SELECT dm.*,
+           u_from.username as from_username,
+           u_to.username as to_username
+    FROM direct_messages dm
+    JOIN users u_from ON dm.from_user_id = u_from.id
+    JOIN users u_to ON dm.to_user_id = u_to.id
+    WHERE (dm.from_user_id = ? AND dm.to_user_id = ?)
+       OR (dm.from_user_id = ? AND dm.to_user_id = ?)
+    ORDER BY dm.created_at ASC
+    LIMIT ?
+  `, [userId1, userId2, userId2, userId1, limit]);
+}
+
+function markDMsAsRead(userId, fromUserId) {
+  // Mark all DMs from fromUserId to userId as read
+  return runSql(
+    `UPDATE direct_messages SET read = 1 WHERE to_user_id = ? AND from_user_id = ? AND read = 0`,
+    [userId, fromUserId]
+  );
+}
+
+function getUnreadDMCount(userId) {
+  const result = queryOne(
+    `SELECT COUNT(*) as count FROM direct_messages WHERE to_user_id = ? AND read = 0`,
+    [userId]
+  );
+  return result ? result.count : 0;
+}
+
+// ============================================
+// CHAT MESSAGE FUNCTIONS (Persistent Chat)
+// ============================================
+
+function createChatMessage(userId, text, drawing, type = 'text', inQueue = false) {
+  runSql(`INSERT INTO chat_messages (user_id, text, drawing, type, in_queue) VALUES (?, ?, ?, ?, ?)`,
+    [userId, text, drawing, type, inQueue ? 1 : 0]);
+  const id = getLastInsertId();
+  return queryOne(`SELECT * FROM chat_messages WHERE id = ?`, [id]);
+}
+
+function getChatMessages(limit = 100) {
+  return queryAll(`
+    SELECT cm.*, u.username
+    FROM chat_messages cm
+    JOIN users u ON cm.user_id = u.id
+    ORDER BY cm.created_at ASC
+    LIMIT ?
+  `, [limit]);
+}
+
+function getChatMessage(id) {
+  return queryOne(`
+    SELECT cm.*, u.username
+    FROM chat_messages cm
+    JOIN users u ON cm.user_id = u.id
+    WHERE cm.id = ?
+  `, [id]);
+}
+
+function upvoteChatMessage(messageId, userId) {
+  const hasVoted = queryOne(`SELECT COUNT(*) as count FROM chat_votes WHERE message_id = ? AND user_id = ?`, [messageId, userId]);
+  if (!hasVoted || hasVoted.count === 0) {
+    runSql(`INSERT OR IGNORE INTO chat_votes (message_id, user_id) VALUES (?, ?)`, [messageId, userId]);
+    runSql(`UPDATE chat_messages SET votes = votes + 1 WHERE id = ?`, [messageId]);
+    return true;
+  }
+  return false;
+}
+
+// ============================================
+// QUESTION QUEUE FUNCTIONS
+// ============================================
+
+function getQueueMessages() {
+  return queryAll(`
+    SELECT cm.*, u.username
+    FROM chat_messages cm
+    JOIN users u ON cm.user_id = u.id
+    WHERE cm.in_queue = 1
+    ORDER BY cm.votes DESC, cm.created_at ASC
+  `);
+}
+
+function getQueueCount() {
+  const result = queryOne(`SELECT COUNT(*) as count FROM chat_messages WHERE in_queue = 1`);
+  return result ? result.count : 0;
+}
+
+function dismissFromQueue(messageId) {
+  return runSql(`UPDATE chat_messages SET in_queue = 0 WHERE id = ?`, [messageId]);
+}
+
+function clearQueue() {
+  return runSql(`UPDATE chat_messages SET in_queue = 0 WHERE in_queue = 1`);
+}
+
+// ============================================
 // EXPORTED API
 // ============================================
 
@@ -848,8 +1060,12 @@ module.exports = {
 
   // Users
   createUser,
+  createUserWithPassword,
   getUserByUsername,
   getUserById,
+  verifyPassword,
+  getPassword,
+  setPassword,
   addCoins,
   setTitle,
   setSprite,
@@ -889,6 +1105,7 @@ module.exports = {
   incrementReactions,
   incrementQuestions,
   incrementDrinks,
+  decrementDrinks,
   getTotalDrinks,
   getUserTotals,
 
@@ -939,7 +1156,26 @@ module.exports = {
   removePushSubscription,
   getUserPushSubscriptions,
   getPushSubscriptionByEndpoint,
-  getAllPushSubscriptions
+  getAllPushSubscriptions,
+
+  // Direct Messages
+  saveDM,
+  getUserDMs,
+  getConversation,
+  markDMsAsRead,
+  getUnreadDMCount,
+
+  // Chat Messages (Persistent)
+  createChatMessage,
+  getChatMessages,
+  getChatMessage,
+  upvoteChatMessage,
+
+  // Question Queue
+  getQueueMessages,
+  getQueueCount,
+  dismissFromQueue,
+  clearQueue
 };
 
 // ============================================
@@ -975,9 +1211,9 @@ function getLeaderboards(limit = 10) {
     LIMIT ?
   `, [limit]);
 
-  // Reactions Leaderboard (total across all presentations)
-  const reactionsLeaderboard = queryAll(`
-    SELECT u.username, COALESCE(SUM(us.reactions), 0) as count
+  // Drinks Leaderboard (total across all presentations)
+  const drinksLeaderboard = queryAll(`
+    SELECT u.username, COALESCE(SUM(us.drinks), 0) as count
     FROM users u
     LEFT JOIN user_stats us ON u.id = us.user_id
     GROUP BY u.id
@@ -989,6 +1225,6 @@ function getLeaderboards(limit = 10) {
     xp: xpLeaderboard,
     pokemon: pokemonLeaderboard,
     shiny: shinyLeaderboard,
-    reactions: reactionsLeaderboard
+    drinks: drinksLeaderboard
   };
 }

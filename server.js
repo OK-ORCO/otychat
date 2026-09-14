@@ -8,6 +8,7 @@ const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const fs = require('fs');
 
 const db = require('./db');
 const pokemon = require('./pokemon');
@@ -26,17 +27,76 @@ const io = new Server(httpServer, {
 
 const PORT = process.env.PORT || 3000;
 const ADMIN_CODE = process.env.ADMIN_CODE || 'otyadmin';
+if (!process.env.ADMIN_CODE && process.env.NODE_ENV === 'production') {
+  console.warn('[Server] ADMIN_CODE is not set; the default is public in the repo. Set it in the host environment.');
+}
 
-// Serve static files
-app.use(express.static(path.join(__dirname, 'public')));
-// Also serve emojis and avatars from client/public for Chrome extension
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+const REACT_BUILD_DIR = path.join(__dirname, 'public-react');
+
+// Third-party art (Discord emojis, avatars) is not in the repo. Locally it lives in
+// client/public; on a hosted deploy it is pushed once into the data volume with
+// scripts/push-assets.js. Check the volume first, then the local copy.
+app.use('/emojis', express.static(path.join(DATA_DIR, 'assets/emojis')));
 app.use('/emojis', express.static(path.join(__dirname, 'client/public/emojis')));
+app.use('/avatars', express.static(path.join(DATA_DIR, 'assets/avatars')));
 app.use('/avatars', express.static(path.join(__dirname, 'client/public/avatars')));
-app.use(express.json());
+
+// Legacy web display + admin pages
+app.use(express.static(path.join(__dirname, 'public')));
+// Built React app (client/ -> public-react/ via `npm run build`)
+app.use(express.static(REACT_BUILD_DIR));
+
+app.use(express.json({ limit: '10mb' }));
+
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true, uptime: Math.round(process.uptime()) });
+});
 
 // ============================================
-// TEST ROUTES (for development)
+// ADMIN-GATED ROUTES
 // ============================================
+
+// Test routes and asset uploads need the admin code (header or ?code=) so a
+// public deploy cannot grant itself Pokemon.
+function requireAdminCode(req, res, next) {
+  const code = req.get('x-admin-code') || req.query.code;
+  if (code !== ADMIN_CODE) {
+    return res.status(403).json({ error: 'Admin code required' });
+  }
+  next();
+}
+app.use('/api/test', requireAdminCode);
+app.use('/api/admin', requireAdminCode);
+
+// Receive one third-party asset file (emoji or avatar) into the data volume.
+// Used by scripts/push-assets.js after a hosted deploy.
+const ASSET_KINDS = new Set(['emojis', 'avatars']);
+app.put('/api/admin/assets/:kind/:filename',
+  express.raw({ type: '*/*', limit: '5mb' }),
+  (req, res) => {
+    const { kind, filename } = req.params;
+    if (!ASSET_KINDS.has(kind) || !/^[\w.-]+\.(png|jpg|jpeg|gif|webp)$/i.test(filename)) {
+      return res.status(400).json({ error: 'Bad asset path' });
+    }
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+      return res.status(400).json({ error: 'Empty body' });
+    }
+    const dir = path.join(DATA_DIR, 'assets', kind);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, filename), req.body);
+    res.json({ ok: true, bytes: req.body.length });
+  }
+);
+
+app.get('/api/admin/assets', (req, res) => {
+  const counts = {};
+  for (const kind of ASSET_KINDS) {
+    const dir = path.join(DATA_DIR, 'assets', kind);
+    counts[kind] = fs.existsSync(dir) ? fs.readdirSync(dir).length : 0;
+  }
+  res.json(counts);
+});
 
 // Grant test Pokemon and items to a user
 app.post('/api/test/grant-pokemon', async (req, res) => {
@@ -124,6 +184,8 @@ app.post('/api/test/spawn', async (req, res) => {
     shiny || false
   );
 
+  userSpawns.set(targetSocket.data.userId, spawn.odId);
+
   // Format spawn data for frontend
   const spawnData = {
     odId: spawn.odId,
@@ -132,7 +194,11 @@ app.post('/api/test/spawn', async (req, res) => {
     rarity: spawn.pokemon.rarity,
     isShiny: spawn.isShiny,
     zone: spawn.zone,
-    expiresAt: spawn.expiresAt
+    sprite: pokemon.getSpriteUrl(spawn.pokemon.id, spawn.isShiny),
+    animatedSprite: pokemon.getAnimatedSpriteUrl(spawn.pokemon.id, spawn.isShiny),
+    expiresAt: spawn.expiresAt,
+    catchWindow: pokemon.CATCH_WINDOW,
+    quickCatchWindow: pokemon.QUICK_CATCH_WINDOW
   };
 
   targetSocket.emit('pokemon-spawn', spawnData);
@@ -252,9 +318,60 @@ const MAX_CATCH_ATTEMPTS = 3;
 
 let currentPresentation = null;
 
+// Chat message currently shown on the Slides overlay, or null.
+let displayedMessageId = null;
+
+// One Popcorn Emergency at a time, in memory only.
+const EMERGENCY_TTL_MS = 5 * 60 * 1000;
+let activeEmergency = null;
+
 // ============================================
 // HELPERS
 // ============================================
+
+function hideDisplayedQuestion() {
+  if (displayedMessageId === null) return;
+  displayedMessageId = null;
+  emitToDisplay('hide-question');
+  io.emit('display-question-changed', { messageId: null });
+}
+
+function socketIdForUsername(username) {
+  for (const [socketId, data] of connectedUsers.entries()) {
+    if (data.username === username) return socketId;
+  }
+  return null;
+}
+
+function emergencyPublicState() {
+  if (!activeEmergency) return null;
+  return {
+    id: activeEmergency.id,
+    hostUsername: activeEmergency.hostUsername,
+    isAll: activeEmergency.isAll,
+    invitees: activeEmergency.invitees.map(username => ({
+      username,
+      status: activeEmergency.responses[username] || 'pending'
+    })),
+    createdAt: activeEmergency.createdAt,
+    expiresAt: activeEmergency.createdAt + EMERGENCY_TTL_MS
+  };
+}
+
+function endEmergency(reason = 'ended') {
+  if (!activeEmergency) return;
+  const { hostSocketId, invitees, isAll, timer } = activeEmergency;
+  clearTimeout(timer);
+  activeEmergency = null;
+
+  io.to(hostSocketId).emit('popcorn-emergency-ended', { reason });
+  invitees.forEach(username => {
+    const sid = socketIdForUsername(username);
+    if (sid) io.to(sid).emit('popcorn-emergency-ended', { reason });
+  });
+  if (isAll) emitToDisplay('popcorn-emergency-end');
+  console.log(`[Popcorn] Emergency ${reason}`);
+}
 
 function getOnlineCount() {
   return connectedUsers.size;
@@ -263,8 +380,12 @@ function getOnlineCount() {
 function getOnlineUsers() {
   const users = [];
   connectedUsers.forEach((data, socketId) => {
+    // Get full user data from database
+    const dbUser = data.odId ? db.getUserById(data.odId) : null;
     users.push({
-      username: data.username,
+      odName: data.username,
+      odTitle: dbUser?.title || 'Newcomer',
+      odProfilePic: dbUser?.profile_pic || '👤',
       zone: data.zone,
       level: data.trainerLevel,
       online: true
@@ -279,9 +400,9 @@ function broadcastUserCount() {
 
 function broadcastUserList() {
   const users = getOnlineUsers();
-  io.emit('user-list', users);
+  io.emit('online-users', users);
   adminSockets.forEach(socketId => {
-    io.to(socketId).emit('user-list', users);
+    io.to(socketId).emit('online-users', users);
   });
 }
 
@@ -323,6 +444,7 @@ function addUserXP(socket, userId, amount) {
     amount,
     newXP: result.newXP,
     level: result.newLevel,
+    currentLevelXP: db.LEVEL_THRESHOLDS[result.newLevel - 1] || 0,
     nextLevelXP: db.getXPForNextLevel(result.newLevel)
   });
 
@@ -372,12 +494,15 @@ function sendTrainerStats(socket, user) {
   socket.emit('trainer-stats', {
     // Basic stats
     ...totals,
+    id: user.id,
+    username: user.username,
     coins: user.coins,
     title: user.title,
 
     // Trainer leveling (matching frontend expectations)
     level: user.trainer_level,
     xp: user.trainer_xp,
+    xpForCurrentLevel: db.LEVEL_THRESHOLDS[user.trainer_level - 1] || 0,
     xpForNextLevel: db.getXPForNextLevel(user.trainer_level),
 
     // Zone
@@ -410,8 +535,43 @@ function sendTrainerStats(socket, user) {
       type: e.effect_type,
       expiresAt: e.expires_at,
       usesRemaining: e.uses_remaining
-    }))
+    })),
+
+    // Profile
+    profilePic: user.profile_pic || null,
+    status: user.status || '',
+    nameColor: user.name_color || '#ec4899'
   });
+}
+
+/**
+ * Full achievement catalogue plus this user's unlocks and progress counters.
+ */
+function sendAchievements(socket, userId) {
+  const stats = db.getUserTotals(userId) || { reactions: 0, questions: 0, drinks: 0 };
+  const pokemonCount = db.getPokemonCount(userId);
+  const unlockedRows = db.getUserAchievements(userId);
+  socket.emit('achievements-list', {
+    achievements: achievements.getAllAchievements(),
+    unlocked: unlockedRows.map(r => ({ id: r.achievement_id, unlockedAt: r.unlocked_at })),
+    progress: achievements.getProgress(stats, pokemonCount)
+  });
+}
+
+/**
+ * Everything this user has caught, in the shape the phone's Pokedex reads.
+ */
+function sendPokedex(socket, userId) {
+  const caught = db.getUserPokemon(userId).map(p => ({
+    odId: String(p.id),
+    odPokemonId: p.pokemon_id,
+    odName: p.pokemon_name,
+    odIsShiny: p.is_shiny === 1,
+    odZone: p.zone,
+    odCaughtAt: p.caught_at,
+    odSpriteUrl: pokemon.getSpriteUrl(p.pokemon_id, p.is_shiny === 1)
+  }));
+  socket.emit('pokedex-data', caught);
 }
 
 function checkAndEmitAchievements(socket, userId, context = {}) {
@@ -422,6 +582,13 @@ function checkAndEmitAchievements(socket, userId, context = {}) {
     ...context,
     pokemonCount
   });
+
+  if (unlocked.length > 0) {
+    // Unlocks pay coins and can change the title, so refresh the whole card.
+    const refreshed = db.getUserById(userId);
+    if (refreshed) sendTrainerStats(socket, refreshed);
+    sendAchievements(socket, userId);
+  }
 
   unlocked.forEach(achievement => {
     socket.emit('achievement-unlocked', {
@@ -513,21 +680,46 @@ io.on('connection', (socket) => {
   // JOIN HANDLERS
   // ----------------------------------------
 
-  socket.on('join', ({ username }) => {
+  socket.on('join', ({ username, password }) => {
     if (!username || username.length > 16) {
       socket.emit('error', { message: 'Invalid username' });
       return;
     }
 
-    const user = db.createUser(username.trim());
+    const trimmedUsername = username.trim();
+    const trimmedPassword = (password || '').trim();
+
+    // Check if user exists
+    const existingUser = db.getUserByUsername(trimmedUsername);
+
+    let user;
+    if (existingUser) {
+      // User exists - verify password
+      const result = db.verifyPassword(trimmedUsername, trimmedPassword);
+      if (!result.valid) {
+        socket.emit('join-error', { message: 'Wrong password', code: 'WRONG_PASSWORD' });
+        return;
+      }
+      user = result.user;
+    } else {
+      // New user - create with password
+      if (!trimmedPassword) {
+        socket.emit('join-error', { message: 'Please set a password', code: 'PASSWORD_REQUIRED' });
+        return;
+      }
+      user = db.createUser(trimmedUsername, trimmedPassword);
+    }
+
     socket.data.userId = user.id;
     socket.data.username = user.username;
+    socket.data.nameColor = user.name_color || '#ec4899';
 
     connectedUsers.set(socket.id, {
       username: user.username,
       odId: user.id,
       zone: user.current_zone || 'meadow',
-      trainerLevel: user.trainer_level || 1
+      trainerLevel: user.trainer_level || 1,
+      nameColor: user.name_color || '#ec4899'
     });
 
     if (currentPresentation) {
@@ -541,12 +733,22 @@ io.on('connection', (socket) => {
 
     // Send full trainer stats
     sendTrainerStats(socket, user);
+    sendPokedex(socket, user.id);
+    sendAchievements(socket, user.id);
 
-    // Send existing questions
+    // Send existing questions (legacy - presentation-based)
     if (currentPresentation) {
       const questions = db.getQuestions(currentPresentation.id);
       socket.emit('questions-sync', questions);
     }
+
+    // Send persistent chat messages
+    const chatMessages = db.getChatMessages(100);
+    socket.emit('chat-sync', chatMessages);
+
+    // Send question queue
+    const queueMessages = db.getQueueMessages();
+    socket.emit('queue-sync', queueMessages);
 
     // Send zone data
     socket.emit('zones-data', {
@@ -560,10 +762,68 @@ io.on('connection', (socket) => {
     // Send leaderboards
     socket.emit('leaderboards', db.getLeaderboards(10));
 
+    // Send DM history
+    const dmHistory = db.getUserDMs(user.id, 200);
+    const formattedDMs = dmHistory.map(dm => ({
+      odId: dm.id.toString(),
+      odFromId: dm.from_user_id,
+      odFromName: dm.from_username,
+      odToId: dm.to_user_id,
+      odToName: dm.to_username,
+      odContent: dm.content || '',
+      odImageData: dm.image_data || null,
+      odRead: dm.read === 1,
+      odCreatedAt: dm.created_at
+    })).reverse(); // Reverse to get chronological order
+    socket.emit('dm-history', formattedDMs);
+
+    // Send unread DM count
+    const unreadCount = db.getUnreadDMCount(user.id);
+    socket.emit('unread-dm-count', unreadCount);
+
+    // What the Slides overlay is showing right now
+    socket.emit('display-question-changed', { messageId: displayedMessageId });
+
+    // Re-attach to an in-flight Popcorn Emergency after a reconnect
+    if (activeEmergency) {
+      if (activeEmergency.hostUsername === user.username) {
+        activeEmergency.hostSocketId = socket.id;
+        socket.emit('popcorn-emergency-status', emergencyPublicState());
+      } else if (activeEmergency.invitees.includes(user.username)
+        && (activeEmergency.responses[user.username] || 'pending') === 'pending') {
+        socket.emit('popcorn-emergency-invite', {
+          emergencyId: activeEmergency.id,
+          hostUsername: activeEmergency.hostUsername,
+          invitees: activeEmergency.invitees,
+          expiresAt: activeEmergency.createdAt + EMERGENCY_TTL_MS
+        });
+      }
+    }
+
     broadcastUserCount();
     broadcastUserList();
 
-    console.log(`[User] ${username} joined (Level ${user.trainer_level}, Zone: ${user.current_zone})`);
+    console.log(`[User] ${trimmedUsername} joined (Level ${user.trainer_level}, Zone: ${user.current_zone})`);
+  });
+
+  // Forgot password - just tell them their password (it's for friends, no security needed)
+  socket.on('forgot-password', ({ username }) => {
+    if (!username) {
+      socket.emit('forgot-password-result', { success: false, message: 'Please enter your username' });
+      return;
+    }
+
+    const user = db.getUserByUsername(username.trim());
+    if (!user) {
+      socket.emit('forgot-password-result', { success: false, message: 'Username not found' });
+      return;
+    }
+
+    socket.emit('forgot-password-result', {
+      success: true,
+      password: user.password || '(no password set)',
+      message: `Your password is: ${user.password || '(no password set)'}`
+    });
   });
 
   socket.on('join-display', () => {
@@ -575,7 +835,7 @@ io.on('connection', (socket) => {
   socket.on('join-admin', ({ adminCode }) => {
     if (adminCode === ADMIN_CODE) {
       adminSockets.add(socket.id);
-      socket.emit('user-list', getOnlineUsers());
+      socket.emit('online-users', getOnlineUsers());
 
       if (currentPresentation) {
         const questions = db.getQuestions(currentPresentation.id);
@@ -644,6 +904,15 @@ io.on('connection', (socket) => {
 
     const success = db.updateProfile(socket.data.userId, dbUpdates);
     if (success) {
+      // Update socket.data if nameColor changed
+      if (updates.nameColor) {
+        socket.data.nameColor = updates.nameColor;
+        // Also update connectedUsers
+        const userData = connectedUsers.get(socket.id);
+        if (userData) {
+          userData.nameColor = updates.nameColor;
+        }
+      }
       socket.emit('profile-updated', updates);
       console.log(`[Profile] ${socket.data.username} updated profile:`, Object.keys(updates).join(', '));
     }
@@ -667,7 +936,8 @@ io.on('connection', (socket) => {
     // Broadcast to all clients including display (io.emit covers everyone)
     io.emit('emoji-blast', {
       emoji,
-      username: socket.data.username
+      username: socket.data.username,
+      userColor: socket.data.nameColor || '#ec4899'
     });
     // Note: No separate emitToDisplay needed - io.emit already reaches display sockets
 
@@ -678,20 +948,24 @@ io.on('connection', (socket) => {
   // QUESTIONS
   // ----------------------------------------
 
-  socket.on('send-question', ({ text, drawing }) => {
+  socket.on('send-question', ({ text, drawing, type }) => {
     if (!socket.data.userId || !currentPresentation) return;
     if (!text && !drawing) return;
+
+    // Determine the question type
+    const questionType = type || (drawing ? 'drawing' : 'text');
 
     const question = db.createQuestion(
       socket.data.userId,
       currentPresentation.id,
       text || null,
-      drawing || null
+      drawing || null,
+      questionType
     );
 
     db.incrementQuestions(socket.data.userId, currentPresentation.id);
 
-    // Add XP (more for drawings)
+    // Add XP (more for drawings/images)
     const xp = drawing ? XP_REWARDS.drawing : XP_REWARDS.question;
     addUserXP(socket, socket.data.userId, xp);
 
@@ -704,10 +978,10 @@ io.on('connection', (socket) => {
     emitToAdmin('question-added', fullQuestion);
 
     checkAndEmitAchievements(socket, socket.data.userId, {
-      isDrawing: !!drawing
+      isDrawing: questionType === 'drawing'
     });
 
-    if (drawing) {
+    if (drawing && questionType === 'drawing') {
       emitToDisplay('drawing-blast', {
         username: socket.data.username,
         text,
@@ -753,41 +1027,260 @@ io.on('connection', (socket) => {
   });
 
   // ----------------------------------------
-  // DIRECT MESSAGES
+  // PERSISTENT CHAT (not tied to presentations)
   // ----------------------------------------
 
-  socket.on('send-dm', ({ to, text, drawing }) => {
+  socket.on('send-chat', ({ text, drawing, type }) => {
     if (!socket.data.userId) return;
     if (!text && !drawing) return;
 
+    const messageType = type || (drawing ? 'drawing' : 'text');
+
+    const message = db.createChatMessage(
+      socket.data.userId,
+      text || null,
+      drawing || null,
+      messageType,
+      false // not in queue
+    );
+
+    // Add XP
+    const xp = drawing ? XP_REWARDS.drawing : XP_REWARDS.question;
+    addUserXP(socket, socket.data.userId, xp);
+
+    const fullMessage = {
+      ...message,
+      username: socket.data.username
+    };
+
+    io.emit('chat-message-added', fullMessage);
+
+    checkAndEmitAchievements(socket, socket.data.userId, {
+      isDrawing: messageType === 'drawing'
+    });
+
+    if (drawing && messageType === 'drawing') {
+      emitToDisplay('drawing-blast', {
+        username: socket.data.username,
+        text,
+        drawing
+      });
+    }
+  });
+
+  socket.on('send-to-queue', ({ text, drawing, type }) => {
+    if (!socket.data.userId) return;
+    if (!text && !drawing) return;
+
+    const messageType = type || (drawing ? 'drawing' : 'text');
+
+    const message = db.createChatMessage(
+      socket.data.userId,
+      text || null,
+      drawing || null,
+      messageType,
+      true // in queue
+    );
+
+    // Add XP
+    const xp = drawing ? XP_REWARDS.drawing : XP_REWARDS.question;
+    addUserXP(socket, socket.data.userId, xp);
+
+    const fullMessage = {
+      ...message,
+      username: socket.data.username
+    };
+
+    // Send to chat (visible to everyone)
+    io.emit('chat-message-added', fullMessage);
+
+    // Also notify about queue update
+    io.emit('queue-item-added', fullMessage);
+
+    checkAndEmitAchievements(socket, socket.data.userId, {
+      isDrawing: messageType === 'drawing'
+    });
+  });
+
+  socket.on('upvote-chat', ({ messageId }) => {
+    if (!socket.data.userId) return;
+
+    const success = db.upvoteChatMessage(messageId, socket.data.userId);
+    if (success) {
+      const message = db.getChatMessage(messageId);
+      if (message) {
+        io.emit('chat-upvoted', {
+          messageId,
+          votes: message.votes
+        });
+
+        // Give XP to message author
+        if (message.user_id !== socket.data.userId) {
+          const authorEntry = [...connectedUsers.entries()]
+            .find(([_, data]) => data.odId === message.user_id);
+          if (authorEntry) {
+            const [authorSocketId] = authorEntry;
+            const authorSocket = io.sockets.sockets.get(authorSocketId);
+            if (authorSocket) {
+              addUserXP(authorSocket, message.user_id, XP_REWARDS.upvote_received);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // ----------------------------------------
+  // QUESTION QUEUE MANAGEMENT
+  // ----------------------------------------
+
+  socket.on('dismiss-from-queue', ({ messageId }) => {
+    if (!socket.data.userId) return;
+
+    db.dismissFromQueue(messageId);
+    io.emit('queue-item-dismissed', { messageId });
+    if (displayedMessageId !== null && String(displayedMessageId) === String(messageId)) {
+      hideDisplayedQuestion();
+    }
+  });
+
+  socket.on('clear-queue', () => {
+    if (!socket.data.userId) return;
+
+    db.clearQueue();
+    io.emit('queue-cleared');
+    hideDisplayedQuestion();
+  });
+
+  socket.on('show-on-display', ({ messageId }) => {
+    if (!socket.data.userId) return;
+
+    const message = db.getChatMessage(messageId);
+    if (!message) return;
+
+    displayedMessageId = message.id;
+    emitToDisplay('show-question', {
+      id: message.id,
+      username: message.username,
+      text: message.text,
+      drawing: message.drawing,
+      type: message.type,
+      votes: message.votes
+    });
+    io.emit('display-question-changed', { messageId: message.id });
+  });
+
+  socket.on('hide-from-display', () => {
+    if (!socket.data.userId) return;
+    hideDisplayedQuestion();
+  });
+
+  // ----------------------------------------
+  // USER PROFILES
+  // ----------------------------------------
+
+  socket.on('get-user-profile', ({ username }) => {
+    if (!socket.data.userId || !username) return;
+
+    const user = db.getUserByUsername(String(username).trim());
+    if (!user) {
+      socket.emit('user-profile', { username, notFound: true });
+      return;
+    }
+
+    const totals = db.getUserTotals(user.id) || { drinks: 0 };
+    const recentPokemon = db.getUserPokemon(user.id).slice(0, 5).map(p => ({
+      pokemonId: p.pokemon_id,
+      name: p.pokemon_name,
+      isShiny: p.is_shiny === 1,
+      caughtAt: p.caught_at,
+      sprite: pokemon.getSpriteUrl(p.pokemon_id, p.is_shiny === 1)
+    }));
+
+    socket.emit('user-profile', {
+      username: user.username,
+      profilePic: user.profile_pic || '👤',
+      title: user.title || '',
+      status: user.status || '',
+      nameColor: user.name_color || '#ec4899',
+      level: user.trainer_level || 1,
+      coins: user.coins || 0,
+      pokemonCaught: db.getPokemonCount(user.id),
+      shinyCaught: db.getShinyCount(user.id),
+      achievements: db.getUserAchievements(user.id).length,
+      drinkCount: totals.drinks || 0,
+      kudosReceived: db.getKudosReceived(user.id),
+      joinedAt: user.created_at,
+      online: [...connectedUsers.values()].some(u => u.username === user.username),
+      recentPokemon
+    });
+  });
+
+  // ----------------------------------------
+  // DIRECT MESSAGES
+  // ----------------------------------------
+
+  socket.on('send-dm', ({ toUsername, content, drawing }) => {
+    if (!socket.data.userId) return;
+    if (!content && !drawing) return;
+
+    // Look up recipient user in database
+    const recipientUser = db.getUserByUsername(toUsername);
+    if (!recipientUser) return; // Recipient doesn't exist
+
+    // Save DM to database
+    const savedDM = db.saveDM(socket.data.userId, recipientUser.id, content || '', drawing || null);
+    if (!savedDM) return;
+
+    const dmData = {
+      odId: savedDM.id.toString(),
+      odFromId: socket.data.userId,
+      odFromName: socket.data.username,
+      odToId: recipientUser.id,
+      odToName: toUsername,
+      odContent: content || '',
+      odImageData: drawing || null,
+      odRead: false,
+      odCreatedAt: savedDM.created_at
+    };
+
+    // Check if recipient is online
     const recipientEntry = [...connectedUsers.entries()]
-      .find(([_, data]) => data.username === to);
+      .find(([_, data]) => data.username === toUsername);
 
     if (recipientEntry) {
       const [recipientSocketId, recipientData] = recipientEntry;
-      io.to(recipientSocketId).emit('dm-received', {
-        from: socket.data.username,
-        text,
-        drawing,
-        timestamp: Date.now()
-      });
+      // Send to recipient in real-time
+      io.to(recipientSocketId).emit('dm-received', dmData);
 
-      // Send push notification to recipient
-      if (recipientData.userId) {
-        const notifBody = drawing ? `${socket.data.username} sent you a drawing` : text;
-        push.sendNotification(recipientData.userId, {
-          title: `DM from ${socket.data.username}`,
-          body: notifBody.length > 100 ? notifBody.slice(0, 97) + '...' : notifBody,
-          tag: `dm-${socket.data.username}`,
-          url: '/dms'
-        });
-      }
-
-      // Add XP
-      addUserXP(socket, socket.data.userId, XP_REWARDS.dm);
-
-      checkAndEmitAchievements(socket, socket.data.userId, { isDM: true });
     }
+
+    // Push notification to the recipient whether or not they are online. Online
+    // phones that are backgrounded only hear about it this way.
+    const notifBody = drawing ? `${socket.data.username} sent you a drawing` : content;
+    push.sendNotification(recipientUser.id, {
+      title: `DM from ${socket.data.username}`,
+      body: notifBody.length > 100 ? notifBody.slice(0, 97) + '...' : notifBody,
+      tag: `dm-${socket.data.username}`,
+      url: '/'
+    });
+
+    // Also send back to sender so they see their own message
+    socket.emit('dm-received', dmData);
+
+    // Add XP
+    addUserXP(socket, socket.data.userId, XP_REWARDS.dm);
+    checkAndEmitAchievements(socket, socket.data.userId, { isDM: true });
+  });
+
+  // Mark DMs as read
+  socket.on('mark-dms-read', ({ fromUsername }) => {
+    if (!socket.data.userId) return;
+
+    const fromUser = db.getUserByUsername(fromUsername);
+    if (!fromUser) return;
+
+    db.markDMsAsRead(socket.data.userId, fromUser.id);
   });
 
   // ----------------------------------------
@@ -803,9 +1296,17 @@ io.on('connection', (socket) => {
     addUserXP(socket, socket.data.userId, XP_REWARDS.drink);
 
     const stats = getUserStats(socket.data.userId);
+    const userTotals = db.getUserTotals(socket.data.userId);
     const totalDrinks = db.getTotalDrinks(currentPresentation.id);
 
-    io.emit('drink-logged', {
+    // Send to the user who logged the drink with their personal stats
+    socket.emit('drink-logged', {
+      tonight: stats.drinks,
+      total: userTotals?.drinks || stats.drinks
+    });
+
+    // Broadcast to everyone for the display/feed
+    io.emit('drink-logged-broadcast', {
       username: socket.data.username,
       count: stats.drinks,
       totalDrinks
@@ -818,6 +1319,21 @@ io.on('connection', (socket) => {
     });
 
     checkAndEmitAchievements(socket, socket.data.userId);
+  });
+
+  socket.on('unlog-drink', () => {
+    if (!socket.data.userId || !currentPresentation) return;
+
+    db.decrementDrinks(socket.data.userId, currentPresentation.id);
+
+    const stats = getUserStats(socket.data.userId);
+    const userTotals = db.getUserTotals(socket.data.userId);
+
+    // Send updated stats to the user
+    socket.emit('drink-logged', {
+      tonight: stats.drinks,
+      total: userTotals?.drinks || stats.drinks
+    });
   });
 
   // ----------------------------------------
@@ -889,6 +1405,102 @@ io.on('connection', (socket) => {
     });
 
     console.log(`[Kudos] ${fromUsername} -> ${toUsername}: "${message || '(no message)'}"`);
+  });
+
+  // ----------------------------------------
+  // POPCORN EMERGENCY
+  // ----------------------------------------
+
+  socket.on('popcorn-emergency', ({ invitees } = {}) => {
+    if (!socket.data.userId) return;
+    const host = socket.data.username;
+
+    if (activeEmergency) {
+      socket.emit('popcorn-emergency-error', {
+        message: `${activeEmergency.hostUsername} already has an emergency running`
+      });
+      return;
+    }
+
+    const isAll = invitees === 'all';
+    let names;
+    if (isAll) {
+      names = [...connectedUsers.values()].map(u => u.username);
+    } else if (Array.isArray(invitees)) {
+      names = invitees.map(n => String(n).trim()).filter(n => n && db.getUserByUsername(n));
+    } else {
+      names = [];
+    }
+    names = [...new Set(names)].filter(n => n !== host);
+
+    if (names.length === 0) {
+      socket.emit('popcorn-emergency-error', { message: 'Nobody to summon yet' });
+      return;
+    }
+
+    activeEmergency = {
+      id: `emergency-${Date.now()}`,
+      hostSocketId: socket.id,
+      hostUsername: host,
+      invitees: names,
+      isAll,
+      responses: {},
+      createdAt: Date.now(),
+      timer: setTimeout(() => endEmergency('expired'), EMERGENCY_TTL_MS)
+    };
+
+    const invitePayload = {
+      emergencyId: activeEmergency.id,
+      hostUsername: host,
+      invitees: names,
+      expiresAt: activeEmergency.createdAt + EMERGENCY_TTL_MS
+    };
+    names.forEach(username => {
+      const sid = socketIdForUsername(username);
+      if (sid) io.to(sid).emit('popcorn-emergency-invite', invitePayload);
+      const invitee = db.getUserByUsername(username);
+      if (invitee) {
+        push.sendNotification(invitee.id, {
+          title: 'POPCORN EMERGENCY',
+          body: `${host} needs you!`,
+          tag: 'popcorn-emergency',
+          url: '/'
+        });
+      }
+    });
+
+    socket.emit('popcorn-emergency-status', emergencyPublicState());
+
+    if (isAll) {
+      emitToDisplay('popcorn-emergency-start', {
+        hostUsername: host,
+        invitees: names.map(username => ({ username }))
+      });
+    }
+
+    console.log(`[Popcorn] ${host} summoned ${isAll ? 'everyone' : names.join(', ')}`);
+  });
+
+  socket.on('popcorn-emergency-respond', ({ accepted } = {}) => {
+    if (!socket.data.userId || !activeEmergency) return;
+    const username = socket.data.username;
+    if (!activeEmergency.invitees.includes(username)) return;
+
+    const status = accepted ? 'accepted' : 'declined';
+    activeEmergency.responses[username] = status;
+
+    const payload = { username, status };
+    io.to(activeEmergency.hostSocketId).emit('popcorn-emergency-response', payload);
+    socket.emit('popcorn-emergency-response', payload);
+    if (activeEmergency.isAll) emitToDisplay('popcorn-emergency-response', payload);
+
+    console.log(`[Popcorn] ${username} ${status}`);
+  });
+
+  socket.on('popcorn-emergency-end', () => {
+    if (!socket.data.userId || !activeEmergency) return;
+    if (activeEmergency.hostUsername !== socket.data.username) return;
+    endEmergency('ended');
   });
 
   // ----------------------------------------
@@ -968,8 +1580,13 @@ io.on('connection', (socket) => {
         zone: result.zone,
         isQuickCatch: result.isQuickCatch,
         rewards,
-        ballUsed: ballType
+        ballUsed: ballType,
+        sprite: pokemon.getSpriteUrl(result.pokemon.id, result.isShiny)
       });
+
+      // Coins changed and the collection grew; refresh both on the phone.
+      sendTrainerStats(socket, db.getUserById(userId));
+      sendPokedex(socket, userId);
 
       // Broadcast to all
       io.emit('feed-event', {
@@ -1034,10 +1651,14 @@ io.on('connection', (socket) => {
 
   socket.on('get-pokedex', () => {
     if (!socket.data.userId) return;
+    sendPokedex(socket, socket.data.userId);
+  });
 
-    const caught = db.getUserPokemon(socket.data.userId);
-    // Frontend expects an array of caught pokemon entries
-    socket.emit('pokedex-data', caught);
+  socket.on('run-from-pokemon', () => {
+    if (!socket.data.userId) return;
+    const odId = userSpawns.get(socket.data.userId);
+    if (odId) catchAttempts.delete(odId);
+    userSpawns.delete(socket.data.userId);
   });
 
   socket.on('get-evolutions', ({ pokemonId }) => {
@@ -1094,6 +1715,8 @@ io.on('connection', (socket) => {
         method,
         stone
       });
+      sendPokedex(socket, userId);
+      sendTrainerStats(socket, db.getUserById(userId));
 
       io.emit('feed-event', {
         type: 'pokemon-evolved',
@@ -1266,6 +1889,10 @@ io.on('connection', (socket) => {
       userSpawns.delete(userData.odId);
     }
 
+    if (activeEmergency && activeEmergency.hostSocketId === socket.id) {
+      endEmergency('host-left');
+    }
+
     broadcastUserCount();
     broadcastUserList();
 
@@ -1284,10 +1911,35 @@ async function startServer() {
     await db.initDatabase();
     console.log('[Server] Database initialized');
 
+    // Drinks, reaction stats and Pokemon spawns all hang off an open session
+    // ("presentation"). Open one on boot so a fresh database works without the
+    // legacy admin page, and restart the spawn timer, which never survived a restart.
     currentPresentation = db.getCurrentPresentation();
     if (currentPresentation) {
       console.log(`[Server] Resuming presentation: ${currentPresentation.id}`);
+    } else {
+      currentPresentation = db.startPresentation('Hangout');
+      console.log(`[Server] Started presentation: ${currentPresentation.id}`);
     }
+    pokemon.startAutoSpawn(() => {
+      triggerGlobalSpawn();
+    });
+
+    // Any non-API, non-file path is the React app (deep links, PWA start_url).
+    app.get(/^\/(?!api\/|socket\.io\/).*/, (req, res, next) => {
+      const indexPath = path.join(REACT_BUILD_DIR, 'index.html');
+      if (!fs.existsSync(indexPath)) return next();
+      res.sendFile(indexPath);
+    });
+
+    // Railway sends SIGTERM on redeploy; flush the SQLite file before exiting.
+    const shutdown = (signal) => {
+      console.log(`[Server] ${signal} received, saving database`);
+      db.saveDatabase();
+      process.exit(0);
+    };
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
 
     httpServer.listen(PORT, () => {
       console.log(`

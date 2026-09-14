@@ -141,26 +141,23 @@ export default function Pokedex({ caughtPokemon, onBack }: PokedexProps) {
               }}
             >
               <span style={{
-                fontSize: '10px',
-                color: isCaught ? (isShiny ? 'white' : 'var(--text-muted)') : 'var(--text-muted)',
+                fontSize: '11px',
+                fontWeight: '600',
+                color: isCaught ? (isShiny ? 'white' : 'var(--text)') : 'var(--text-muted)',
                 fontFamily: 'Fredoka, sans-serif'
               }}>
                 #{pokemon.id.toString().padStart(3, '0')}
               </span>
               <div className="w-12 h-12 flex items-center justify-center">
-                {isCaught ? (
-                  <img
-                    src={getSpriteUrl(pokemon.id, isShiny)}
-                    alt={pokemon.name}
-                    className="w-full h-full object-contain"
-                    style={{ imageRendering: 'pixelated' }}
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-full" style={{
-                    background: '#1f2937',
-                    filter: 'blur(1px)'
-                  }} />
-                )}
+                <img
+                  src={getSpriteUrl(pokemon.id, isCaught && isShiny)}
+                  alt={isCaught ? pokemon.name : '???'}
+                  className="w-full h-full object-contain"
+                  style={{
+                    imageRendering: 'pixelated',
+                    filter: isCaught ? 'none' : 'brightness(0) opacity(0.3)'
+                  }}
+                />
               </div>
               {isShiny && <span className="text-xs">✨</span>}
             </button>

@@ -22,6 +22,53 @@ export const STONE_SPRITES = {
   sun: `${ITEM_SPRITE_BASE}/sun-stone.png`,
   dragon: `${ITEM_SPRITE_BASE}/dragon-scale.png`,
 };
+// UI icon sprites - All PokeAPI item sprites for the app
+export const UI_SPRITES = {
+  // Currency & XP
+  coin: `${ITEM_SPRITE_BASE}/nugget.png`,
+  xp: `${ITEM_SPRITE_BASE}/rare-candy.png`,
+  levelUp: `${ITEM_SPRITE_BASE}/exp-share.png`,
+
+  // Pokemon-related
+  shiny: `${ITEM_SPRITE_BASE}/shiny-charm.png`,
+  pokedex: `${ITEM_SPRITE_BASE}/poke-radar.png`,
+  caught: `${ITEM_SPRITE_BASE}/luxury-ball.png`,
+  pokeball: `${ITEM_SPRITE_BASE}/poke-ball.png`,
+
+  // Navigation
+  map: `${ITEM_SPRITE_BASE}/town-map.png`,
+  shop: `${ITEM_SPRITE_BASE}/amulet-coin.png`,
+
+  // Tab bar icons
+  feed: `${ITEM_SPRITE_BASE}/town-map.png`,
+  react: `${ITEM_SPRITE_BASE}/vs-recorder.png`,
+  dms: `${ITEM_SPRITE_BASE}/heart-mail.png`,
+  profile: `${ITEM_SPRITE_BASE}/premier-ball.png`,
+
+  // Stats icons
+  fire: `${ITEM_SPRITE_BASE}/flame-orb.png`,
+  reactions: `${ITEM_SPRITE_BASE}/flame-orb.png`,
+  questions: `${ITEM_SPRITE_BASE}/choice-specs.png`,
+  drinks: `${ITEM_SPRITE_BASE}/moomoo-milk.png`,
+  drawings: `${ITEM_SPRITE_BASE}/lure-ball.png`,
+  online: `${ITEM_SPRITE_BASE}/friend-ball.png`,
+
+  // Buttons & Actions
+  achievements: `${ITEM_SPRITE_BASE}/kings-rock.png`,
+  settings: `${ITEM_SPRITE_BASE}/silph-scope.png`,
+  leaderboard: `${ITEM_SPRITE_BASE}/exp-share.png`,
+  edit: `${ITEM_SPRITE_BASE}/destiny-knot.png`,
+  cheers: `${ITEM_SPRITE_BASE}/lemonade.png`,
+  camera: `${ITEM_SPRITE_BASE}/scope-lens.png`,
+  party: `${ITEM_SPRITE_BASE}/lemonade.png`,
+
+  // Leaderboard filters
+  xpLeader: `${ITEM_SPRITE_BASE}/lucky-egg.png`,
+  catchLeader: `${ITEM_SPRITE_BASE}/safari-ball.png`,
+  shinyLeader: `${ITEM_SPRITE_BASE}/shiny-charm.png`,
+  activeLeader: `${ITEM_SPRITE_BASE}/quick-claw.png`,
+};
+
 
 export function getSpriteUrl(id: number, shiny = false): string {
   return shiny ? `${SPRITE_BASE}/shiny/${id}.png` : `${SPRITE_BASE}/${id}.png`;

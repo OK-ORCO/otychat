@@ -197,7 +197,7 @@ export default function ProfilePicSelector({ onBack, onSelect, currentPic }: Pro
               background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)',
               boxShadow: '0 4px 16px rgba(236, 72, 153, 0.2)'
             }}>
-              {currentPic.startsWith('data:') || currentPic.startsWith('http') ? (
+              {currentPic.startsWith('data:') || currentPic.startsWith('http') || currentPic.startsWith('/') ? (
                 <img src={currentPic} alt="Profile" className="w-full h-full object-cover" />
               ) : (
                 <span>{currentPic}</span>

@@ -794,6 +794,12 @@ function triggerGlobalSpawn(onSpawnForUser) {
  * Start auto-spawn timer
  */
 function startAutoSpawn(onGlobalSpawn) {
+  // Idempotent: boot and the admin page can both call this.
+  if (spawnTimer) {
+    clearTimeout(spawnTimer);
+    spawnTimer = null;
+  }
+
   const scheduleNext = () => {
     const interval = getRandomSpawnInterval();
     console.log(`[Pokemon] Next spawn in ${Math.round(interval / 1000 / 60)} minutes`);

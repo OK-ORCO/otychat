@@ -1,9 +1,15 @@
 import { useState, useEffect } from 'react';
 import ProfilePicSelector from './ProfilePicSelector';
 import StatusEditor from './StatusEditor';
+import ColorPicker from './ColorPicker';
 import { loadFavorites, saveFavorites, getEmojiUrl, CUSTOM_EMOJI_IDS, UNICODE_EMOJIS } from '../data/emoji-data';
 import { usePushNotifications } from '../../hooks/usePushNotifications';
 import { useSocket } from '../../contexts/SocketContext';
+import { UI_SPRITES } from '../data/pokemon-data';
+
+function SpriteIcon({ src, size = 24 }: { src: string; size?: number }) {
+  return <img src={src} alt="" style={{ width: size, height: size, imageRendering: 'pixelated' }} />;
+}
 
 interface SettingsProps {
   onBack: () => void;
@@ -13,6 +19,8 @@ interface SettingsProps {
   onProfilePicChange?: (pic: string) => void;
   status?: string;
   onStatusChange?: (status: string) => void;
+  nameColor?: string;
+  onNameColorChange?: (color: string) => void;
 }
 
 const THEMES = [
@@ -23,9 +31,9 @@ const THEMES = [
   { id: 'gradient', name: 'Simple Gradient', emoji: '🌈', description: 'Clean gradient only' }
 ];
 
-export default function Settings({ onBack, onThemeChange, currentTheme = 'gradient', profilePic, onProfilePicChange, status, onStatusChange }: SettingsProps) {
+export default function Settings({ onBack, onThemeChange, currentTheme = 'gradient', profilePic, onProfilePicChange, status, onStatusChange, nameColor = '#ec4899', onNameColorChange }: SettingsProps) {
   const { user } = useSocket();
-  const userId = user?.id || null;
+  const userId = user?.odUserId || null;
   const { isSupported, isSubscribed, isLoading, permission, subscribe, unsubscribe } = usePushNotifications(userId);
 
   const [theme, setTheme] = useState(currentTheme);
@@ -35,6 +43,7 @@ export default function Settings({ onBack, onThemeChange, currentTheme = 'gradie
   const [vibration, setVibration] = useState(true);
   const [showProfilePicSelector, setShowProfilePicSelector] = useState(false);
   const [showStatusEditor, setShowStatusEditor] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
 
   useEffect(() => {
     setFavorites(loadFavorites());
@@ -77,6 +86,21 @@ export default function Settings({ onBack, onThemeChange, currentTheme = 'gradie
     );
   }
 
+  if (showColorPicker) {
+    return (
+      <ColorPicker
+        onBack={() => setShowColorPicker(false)}
+        onSelect={(color) => {
+          if (onNameColorChange) {
+            onNameColorChange(color);
+          }
+          setShowColorPicker(false);
+        }}
+        currentColor={nameColor}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen pb-20">
       {/* Header */}
@@ -101,7 +125,7 @@ export default function Settings({ onBack, onThemeChange, currentTheme = 'gradie
           color: 'white',
           fontWeight: '700'
         }}>
-          ⚙️ Settings
+          <SpriteIcon src={UI_SPRITES.settings} size={22} /> Settings
         </h2>
       </div>
 
@@ -269,7 +293,7 @@ export default function Settings({ onBack, onThemeChange, currentTheme = 'gradie
             <div className="space-y-2">
               <SettingRow label="Profile Picture" action="Change" onClick={() => setShowProfilePicSelector(true)} />
               <SettingRow label="Status" action="Set" onClick={() => setShowStatusEditor(true)} />
-              <SettingRow label="Name Color" action="Pick" />
+              <SettingRow label="Name Color" action="Pick" onClick={() => setShowColorPicker(true)} color={nameColor} />
             </div>
           </div>
         </section>
@@ -467,30 +491,47 @@ interface SettingRowProps {
   label: string;
   action: string;
   onClick?: () => void;
+  color?: string;
 }
 
-function SettingRow({ label, action, onClick }: SettingRowProps) {
+function SettingRow({ label, action, onClick, color }: SettingRowProps) {
   return (
     <div className="p-4 rounded-2xl flex justify-between items-center" style={{
       background: 'var(--bg-secondary)'
     }}>
-      <span style={{
-        fontSize: '14px',
-        fontFamily: 'Nunito, sans-serif',
-        fontWeight: '600'
-      }}>
-        {label}
-      </span>
+      <div className="flex items-center gap-3">
+        {color && (
+          <div
+            className="w-6 h-6 rounded-full"
+            style={{
+              background: color,
+              boxShadow: `0 0 10px ${color}60`,
+              border: '2px solid white'
+            }}
+          />
+        )}
+        <span style={{
+          fontSize: '14px',
+          fontFamily: 'Nunito, sans-serif',
+          fontWeight: '600'
+        }}>
+          {label}
+        </span>
+      </div>
       <button
         className="px-4 py-2 rounded-xl transition-all transform hover:scale-105"
         style={{
-          background: 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)',
+          background: color
+            ? `linear-gradient(135deg, ${color} 0%, ${color}cc 100%)`
+            : 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)',
           color: 'white',
           fontFamily: 'Fredoka, sans-serif',
           fontSize: '12px',
           fontWeight: '600',
           border: 'none',
-          boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)'
+          boxShadow: color
+            ? `0 2px 8px ${color}50`
+            : '0 2px 8px rgba(59, 130, 246, 0.3)'
         }}
         onClick={onClick}
       >

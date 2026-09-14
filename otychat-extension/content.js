@@ -26,16 +26,20 @@
     'rain-down'
   ];
 
+  // Spam prevention: max concurrent emojis on screen
+  const MAX_CONCURRENT_EMOJIS = 25;
+  let activeEmojiCount = 0;
+
   function getRandomPattern() {
     return ANIMATION_PATTERNS[Math.floor(Math.random() * ANIMATION_PATTERNS.length)];
   }
 
   function getRandomX() {
-    return Math.random() * (window.innerWidth - 120) + 60;
+    return Math.random() * (window.innerWidth - 64) + 32;
   }
 
   function getRandomY() {
-    return Math.random() * (window.innerHeight - 120) + 60;
+    return Math.random() * (window.innerHeight - 64) + 32;
   }
 
   // ============================================
@@ -48,8 +52,14 @@
     overlayContainer = document.createElement('div');
     overlayContainer.id = 'otychat-overlay';
 
-    // Popcorn emergency container (hidden by default)
+    // Question card + popcorn emergency container (both hidden by default)
     overlayContainer.innerHTML = `
+      <div class="otychat-question" id="otychat-question">
+        <div class="otychat-question-badge">From the room</div>
+        <div class="otychat-question-votes" id="otychat-question-votes"></div>
+        <div class="otychat-question-author" id="otychat-question-author"></div>
+        <div class="otychat-question-content" id="otychat-question-content"></div>
+      </div>
       <div class="otychat-popcorn-emergency" id="otychat-popcorn-emergency">
         <div class="emergency-bars top"></div>
         <div class="emergency-content">
@@ -110,9 +120,30 @@
         console.log('❌ OtyChat overlay disconnected');
       });
 
-      // Emoji reactions - emoji field contains the URL path like "/emojis/123.png"
+      // Emoji reactions - can be URL path like "/emojis/123.png" or unicode emoji like "😀"
       socket.on('emoji-blast', (data) => {
-        spawnEmoji(data.emoji, data.emoji); // emoji IS the URL
+        const emoji = data.emoji;
+        const userColor = data.userColor || '#ec4899';
+        // Check if it's a URL (starts with / or http) or unicode emoji
+        const isUrl = emoji && (emoji.startsWith('/') || emoji.startsWith('http'));
+        if (isUrl) {
+          spawnEmoji(null, emoji, userColor); // URL-based emoji
+        } else {
+          spawnEmoji(emoji, null, userColor); // Unicode emoji
+        }
+      });
+
+      // Question queue -> big screen
+      socket.on('show-question', (question) => {
+        showQuestion(question);
+      });
+
+      socket.on('hide-question', () => {
+        hideQuestion();
+      });
+
+      socket.on('chat-upvoted', (data) => {
+        updateQuestionVotes(data);
       });
 
       // Popcorn Emergency
@@ -137,10 +168,22 @@
   // EMOJI SPAWNING
   // ============================================
 
-  function spawnEmoji(emoji, emojiUrl) {
+  function spawnEmoji(emoji, emojiUrl, userColor = '#ec4899') {
+    // Spam prevention: skip if too many emojis on screen
+    if (activeEmojiCount >= MAX_CONCURRENT_EMOJIS) {
+      return;
+    }
+    activeEmojiCount++;
+
     const el = document.createElement('div');
     const pattern = getRandomPattern();
     el.className = `otychat-emoji otychat-${pattern}`;
+
+    // Apply user's color as a glowing bubble effect
+    el.style.background = `radial-gradient(circle, ${userColor}30 0%, ${userColor}10 50%, transparent 70%)`;
+    el.style.borderRadius = '50%';
+    el.style.padding = '15px';
+    el.style.boxShadow = `0 0 20px ${userColor}50, 0 0 40px ${userColor}30`;
 
     // Create emoji content - resolve relative URLs to server
     if (emojiUrl) {
@@ -170,7 +213,7 @@
         el.style.top = `${getRandomY()}px`;
         break;
       case 'bounce-across':
-        el.style.left = '-60px';
+        el.style.left = '-40px';
         el.style.top = `${getRandomY()}px`;
         break;
       case 'spiral-rise':
@@ -185,7 +228,7 @@
         break;
       case 'rain-down':
         el.style.left = `${getRandomX()}px`;
-        el.style.top = '-60px';
+        el.style.top = '-40px';
         break;
     }
 
@@ -194,16 +237,19 @@
     // Firework burst effect
     if (pattern === 'firework') {
       setTimeout(() => {
-        createFireworkBurst(el, emoji, emojiUrl);
+        createFireworkBurst(el, emoji, emojiUrl, userColor);
       }, 600);
     }
 
-    // Remove after animation
+    // Remove after animation and decrement counter
     const duration = pattern === 'firework' ? 2000 : 3500;
-    setTimeout(() => el.remove(), duration);
+    setTimeout(() => {
+      el.remove();
+      activeEmojiCount--;
+    }, duration);
   }
 
-  function createFireworkBurst(parentEl, emoji, emojiUrl) {
+  function createFireworkBurst(parentEl, emoji, emojiUrl, userColor = '#ec4899') {
     const rect = parentEl.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
@@ -212,6 +258,9 @@
     for (let i = 0; i < 5; i++) {
       const mini = document.createElement('div');
       mini.className = 'otychat-emoji otychat-burst-particle';
+
+      // Apply user color glow to burst particles
+      mini.style.boxShadow = `0 0 15px ${userColor}60`;
 
       if (emojiUrl) {
         const img = document.createElement('img');
@@ -238,6 +287,54 @@
       overlayContainer.appendChild(mini);
       setTimeout(() => mini.remove(), 1000);
     }
+  }
+
+  // ============================================
+  // QUESTION CARD
+  // ============================================
+
+  let shownQuestionId = null;
+
+  function showQuestion(question) {
+    const card = document.getElementById('otychat-question');
+    const author = document.getElementById('otychat-question-author');
+    const content = document.getElementById('otychat-question-content');
+    const votes = document.getElementById('otychat-question-votes');
+    if (!card) return;
+
+    shownQuestionId = String(question.id);
+    author.textContent = question.username || '';
+    votes.textContent = `👍 ${question.votes || 0}`;
+
+    content.innerHTML = '';
+    if (question.text) {
+      const p = document.createElement('p');
+      p.textContent = question.text;
+      content.appendChild(p);
+    }
+    if (question.drawing) {
+      const img = document.createElement('img');
+      img.src = question.drawing;
+      img.alt = '';
+      content.appendChild(img);
+    }
+
+    // Restart the entrance animation when a new question replaces the old one
+    card.classList.remove('active');
+    void card.offsetWidth;
+    card.classList.add('active');
+  }
+
+  function hideQuestion() {
+    const card = document.getElementById('otychat-question');
+    if (card) card.classList.remove('active');
+    shownQuestionId = null;
+  }
+
+  function updateQuestionVotes(data) {
+    if (shownQuestionId === null || String(data.messageId) !== shownQuestionId) return;
+    const votes = document.getElementById('otychat-question-votes');
+    if (votes) votes.textContent = `👍 ${data.votes}`;
   }
 
   // ============================================

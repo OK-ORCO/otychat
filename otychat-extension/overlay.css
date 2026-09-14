@@ -19,15 +19,15 @@
 
 .otychat-emoji {
   position: absolute !important;
-  font-size: 56px !important;
+  font-size: 32px !important;
   line-height: 1 !important;
   pointer-events: none !important;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2)) !important;
 }
 
 .otychat-emoji img {
-  width: 56px !important;
-  height: 56px !important;
+  width: 32px !important;
+  height: 32px !important;
   object-fit: contain !important;
 }
 
@@ -180,13 +180,13 @@
 
 .otychat-burst-particle {
   position: absolute !important;
-  font-size: 32px !important;
+  font-size: 20px !important;
   animation: otychat-burst 1s ease-out forwards !important;
 }
 
 .otychat-burst-particle img {
-  width: 32px !important;
-  height: 32px !important;
+  width: 20px !important;
+  height: 20px !important;
 }
 
 @keyframes otychat-burst {
@@ -416,4 +416,87 @@
     opacity: 0;
     transform: translateY(-80vh) scale(0.5) rotate(720deg);
   }
+}
+
+/* ============================================
+   QUESTION CARD (queue -> big screen)
+   ============================================ */
+
+.otychat-question {
+  position: absolute !important;
+  bottom: 48px !important;
+  left: 48px !important;
+  right: 48px !important;
+  max-width: 1100px !important;
+  margin: 0 auto !important;
+  background: rgba(255, 255, 255, 0.97) !important;
+  backdrop-filter: blur(20px) !important;
+  border-radius: 28px !important;
+  padding: 28px 36px !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25) !important;
+  border-left: 10px solid #8b5cf6 !important;
+  display: none !important;
+  pointer-events: none !important;
+  font-family: 'Fredoka', 'Nunito', system-ui, sans-serif !important;
+  color: #1f2937 !important;
+  z-index: 999998 !important;
+}
+
+.otychat-question.active {
+  display: block !important;
+  animation: otychat-question-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+@keyframes otychat-question-in {
+  from { opacity: 0; transform: translateY(80px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.otychat-question-badge {
+  display: inline-block !important;
+  padding: 6px 16px !important;
+  border-radius: 20px !important;
+  background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%) !important;
+  color: #fff !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  margin-bottom: 10px !important;
+}
+
+.otychat-question-votes {
+  position: absolute !important;
+  top: 22px !important;
+  right: 28px !important;
+  background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%) !important;
+  color: #fff !important;
+  padding: 10px 20px !important;
+  border-radius: 20px !important;
+  font-size: 22px !important;
+  font-weight: 700 !important;
+}
+
+.otychat-question-author {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  color: #8b5cf6 !important;
+  margin-bottom: 8px !important;
+}
+
+.otychat-question-content p {
+  margin: 0 !important;
+  font-size: 34px !important;
+  line-height: 1.35 !important;
+  font-weight: 600 !important;
+  color: #1f2937 !important;
+  word-break: break-word !important;
+}
+
+.otychat-question-content img {
+  display: block !important;
+  max-width: 420px !important;
+  max-height: 300px !important;
+  border-radius: 16px !important;
+  margin-top: 14px !important;
+  border: 3px solid #f0f0f0 !important;
+  background: #ffffeb !important;
 }

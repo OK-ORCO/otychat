@@ -1,10 +1,13 @@
 import { useRef, useEffect, useState } from 'react';
 
 interface MessageComposerProps {
-  onSend: (data: { drawing?: string; text?: string }) => void;
+  onSend: (data: { drawing?: string; text?: string; image?: string }) => void;
+  onSendToQueue?: (data: { drawing?: string; text?: string; image?: string }) => void;
   placeholder?: string;
   compact?: boolean;
 }
+
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 
 const COLORS = [
   { name: 'Black', value: '#1f2937' },
@@ -23,9 +26,10 @@ const BRUSH_SIZES = [
   { label: 'Large', size: 8 }
 ];
 
-export default function MessageComposer({ onSend, placeholder = 'Type or draw...', compact = false }: MessageComposerProps) {
+export default function MessageComposer({ onSend, onSendToQueue, placeholder = 'Type or draw...', compact = false }: MessageComposerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const lastPosRef = useRef<{ x: number; y: number } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentColor, setCurrentColor] = useState(COLORS[0].value);
@@ -34,6 +38,8 @@ export default function MessageComposer({ onSend, placeholder = 'Type or draw...
   const [hasDrawing, setHasDrawing] = useState(false);
   const [showColorModal, setShowColorModal] = useState(false);
   const [showSizeModal, setShowSizeModal] = useState(false);
+  const [attachedImage, setAttachedImage] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   const width = 300;
   const height = compact ? 96 : 150; // Reduced height for compact mode
@@ -141,6 +147,43 @@ export default function MessageComposer({ onSend, placeholder = 'Type or draw...
     setText(e.target.value);
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImageError(null);
+
+    // Check file type
+    if (!file.type.startsWith('image/')) {
+      setImageError('Please select an image file');
+      return;
+    }
+
+    // Check file size (5MB limit)
+    if (file.size > MAX_IMAGE_SIZE) {
+      setImageError('Image must be under 5MB');
+      return;
+    }
+
+    // Convert to base64
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAttachedImage(reader.result as string);
+    };
+    reader.onerror = () => {
+      setImageError('Failed to read image');
+    };
+    reader.readAsDataURL(file);
+
+    // Reset input so same file can be selected again
+    e.target.value = '';
+  };
+
+  const removeAttachedImage = () => {
+    setAttachedImage(null);
+    setImageError(null);
+  };
+
   const handleClear = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -162,17 +205,37 @@ export default function MessageComposer({ onSend, placeholder = 'Type or draw...
 
     setText('');
     setHasDrawing(false);
+    setAttachedImage(null);
+    setImageError(null);
   };
 
   const handleSend = () => {
-    if (!hasDrawing && !text.trim()) return;
+    if (!hasDrawing && !text.trim() && !attachedImage) return;
 
     const drawing = hasDrawing ? canvasRef.current?.toDataURL() : undefined;
     const textContent = text.trim() || undefined;
 
     onSend({
       drawing,
-      text: textContent
+      text: textContent,
+      image: attachedImage || undefined
+    });
+
+    handleClear();
+    setIsTyping(false);
+  };
+
+  const handleSendToQueue = () => {
+    if (!hasDrawing && !text.trim() && !attachedImage) return;
+    if (!onSendToQueue) return;
+
+    const drawing = hasDrawing ? canvasRef.current?.toDataURL() : undefined;
+    const textContent = text.trim() || undefined;
+
+    onSendToQueue({
+      drawing,
+      text: textContent,
+      image: attachedImage || undefined
     });
 
     handleClear();
@@ -185,10 +248,61 @@ export default function MessageComposer({ onSend, placeholder = 'Type or draw...
     setShowSizeModal(false);
   };
 
-  const hasContent = hasDrawing || text.trim();
+  const hasContent = hasDrawing || text.trim() || attachedImage;
 
   return (
     <div>
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleImageSelect}
+        style={{ display: 'none' }}
+      />
+
+      {/* Image Preview */}
+      {attachedImage && (
+        <div className="mb-2 relative inline-block">
+          <img
+            src={attachedImage}
+            alt="Attached"
+            className="rounded-xl"
+            style={{
+              maxHeight: '120px',
+              maxWidth: '200px',
+              objectFit: 'contain',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+            }}
+          />
+          <button
+            onClick={removeAttachedImage}
+            className="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center"
+            style={{
+              background: '#ef4444',
+              color: 'white',
+              border: '2px solid white',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 'bold'
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* Image Error */}
+      {imageError && (
+        <div className="mb-2 px-3 py-2 rounded-lg text-sm" style={{
+          background: 'rgba(239, 68, 68, 0.1)',
+          color: '#ef4444',
+          fontFamily: 'Nunito, sans-serif'
+        }}>
+          {imageError}
+        </div>
+      )}
+
       {/* Main row: controls + canvas + actions */}
       <div className="flex gap-2 items-stretch">
         {/* Left side: Draw controls */}
@@ -258,6 +372,23 @@ export default function MessageComposer({ onSend, placeholder = 'Type or draw...
                 background: '#1f2937'
               }}
             />
+          </button>
+
+          {/* Image Attachment Button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="w-7 h-7 rounded-md flex items-center justify-center transition-all"
+            style={{
+              background: attachedImage
+                ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                : 'white',
+              border: attachedImage ? 'none' : '2px solid #e5e7eb',
+              boxShadow: attachedImage ? '0 2px 6px rgba(16, 185, 129, 0.4)' : 'none',
+              cursor: 'pointer'
+            }}
+            title="Attach Image (max 5MB)"
+          >
+            <span style={{ fontSize: '12px' }}>📷</span>
           </button>
         </div>
 
@@ -507,6 +638,29 @@ export default function MessageComposer({ onSend, placeholder = 'Type or draw...
           >
             {hasContent ? '✈️ SEND' : '📝 Create something...'}
           </button>
+
+          {onSendToQueue && (
+            <button
+              onClick={handleSendToQueue}
+              disabled={!hasContent}
+              className="px-4 py-2 transition-all transform hover:scale-105 active:scale-95"
+              style={{
+                background: hasContent
+                  ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
+                  : 'var(--bg-secondary)',
+                borderRadius: '12px',
+                color: hasContent ? 'white' : 'var(--text-muted)',
+                fontFamily: 'Fredoka, sans-serif',
+                fontSize: '14px',
+                fontWeight: '700',
+                boxShadow: hasContent ? '0 4px 12px rgba(245, 158, 11, 0.4)' : 'none',
+                cursor: hasContent ? 'pointer' : 'not-allowed',
+                border: 'none'
+              }}
+            >
+              📋 Q
+            </button>
+          )}
         </div>
       )}
     </div>

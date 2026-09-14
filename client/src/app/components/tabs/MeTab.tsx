@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSocket } from '../../../contexts/SocketContext';
+import { UI_SPRITES } from '../../data/pokemon-data';
 import ProfilePicSelector from '../ProfilePicSelector';
 import Settings from '../Settings';
 import ProfileEditor from '../ProfileEditor';
@@ -13,11 +14,16 @@ interface MeTabProps {
 
 type SubPage = 'settings' | 'profilePic' | 'profileEditor' | 'achievements' | null;
 
+function SpriteIcon({ src, size = 24 }: { src: string; size?: number }) {
+  return <img src={src} alt="" style={{ width: size, height: size, imageRendering: 'pixelated' }} />;
+}
+
 export default function MeTab({ username, onThemeChange, currentTheme }: MeTabProps) {
   const {
     user,
     caughtPokemon,
     logDrink,
+    unlogDrink,
     updateProfile
   } = useSocket();
 
@@ -25,23 +31,22 @@ export default function MeTab({ username, onThemeChange, currentTheme }: MeTabPr
   const [profilePic, setProfilePic] = useState(user?.odProfilePic || '👤');
   const [status, setStatus] = useState(user?.odStatus || '');
   const [title, setTitle] = useState(user?.odTitle || 'Newcomer');
+  const [nameColor, setNameColor] = useState(user?.odNameColor || '#ec4899');
 
   // Sync local state with user data from socket context
   useEffect(() => {
     if (user?.odProfilePic) setProfilePic(user.odProfilePic);
     if (user?.odStatus !== undefined) setStatus(user.odStatus);
     if (user?.odTitle) setTitle(user.odTitle);
-  }, [user?.odProfilePic, user?.odStatus, user?.odTitle]);
+    if (user?.odNameColor) setNameColor(user.odNameColor);
+  }, [user?.odProfilePic, user?.odStatus, user?.odTitle, user?.odNameColor]);
 
   const handleLogDrink = () => {
     logDrink();
-    const btn = document.activeElement as HTMLButtonElement;
-    if (btn) {
-      btn.style.transform = 'scale(1.15) rotate(-8deg)';
-      setTimeout(() => {
-        btn.style.transform = 'scale(1) rotate(0deg)';
-      }, 300);
-    }
+  };
+
+  const handleUnlogDrink = () => {
+    unlogDrink();
   };
 
   const handleProfilePicChange = (pic: string) => {
@@ -59,6 +64,11 @@ export default function MeTab({ username, onThemeChange, currentTheme }: MeTabPr
     updateProfile({ title: newTitle });
   };
 
+  const handleNameColorChange = (newColor: string) => {
+    setNameColor(newColor);
+    updateProfile({ nameColor: newColor });
+  };
+
   // Get unique Pokemon count
   const uniquePokemonIds = new Set(caughtPokemon.map(p => p.odPokemonId));
   const pokemonCaught = uniquePokemonIds.size;
@@ -73,6 +83,8 @@ export default function MeTab({ username, onThemeChange, currentTheme }: MeTabPr
         onProfilePicChange={handleProfilePicChange}
         status={status}
         onStatusChange={handleStatusChange}
+        nameColor={nameColor}
+        onNameColorChange={handleNameColorChange}
       />
     );
   }
@@ -126,7 +138,7 @@ export default function MeTab({ username, onThemeChange, currentTheme }: MeTabPr
           <div className="w-20 h-20 rounded-3xl flex items-center justify-center text-4xl overflow-hidden" style={{
             background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)'
           }}>
-            {profilePic.startsWith('data:') || profilePic.startsWith('http') ? (
+            {profilePic.startsWith('data:') || profilePic.startsWith('http') || profilePic.startsWith('/') ? (
               <img src={profilePic} alt="Profile" className="w-full h-full object-cover" />
             ) : (
               <span>{profilePic}</span>
@@ -153,7 +165,7 @@ export default function MeTab({ username, onThemeChange, currentTheme }: MeTabPr
               </p>
             )}
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-2xl">🪙</span>
+              <SpriteIcon src={UI_SPRITES.coin} size={28} />
               <span style={{
                 fontFamily: 'Fredoka, sans-serif',
                 fontSize: '18px',
@@ -196,7 +208,7 @@ export default function MeTab({ username, onThemeChange, currentTheme }: MeTabPr
           boxShadow: '0 4px 16px rgba(236, 72, 153, 0.3)'
         }}
       >
-        <span className="text-2xl">✏️</span>
+        <SpriteIcon src={UI_SPRITES.edit} size={28} />
         Edit Profile
       </button>
 
@@ -215,10 +227,10 @@ export default function MeTab({ username, onThemeChange, currentTheme }: MeTabPr
         </h3>
 
         <div className="grid grid-cols-2 gap-3">
-          <StatCard icon="🔥" label="Reactions" value={user?.odReactions || 0} color="linear-gradient(135deg, #f97316 0%, #fbbf24 100%)" />
-          <StatCard icon="❓" label="Questions" value={user?.odQuestions || 0} color="linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)" />
-          <StatCard icon="🍺" label="Drinks" value={user?.odDrinksTotal || 0} color="linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)" />
-          <StatCard icon="🎨" label="Drawings" value={user?.odDrawings || 0} color="linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)" />
+          <StatCard icon={UI_SPRITES.reactions} label="Reactions" isSprite value={user?.odReactions || 0} color="linear-gradient(135deg, #f97316 0%, #fbbf24 100%)" />
+          <StatCard icon={UI_SPRITES.questions} label="Questions" isSprite value={user?.odQuestions || 0} color="linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)" />
+          <StatCard icon={UI_SPRITES.drinks} label="Drinks" isSprite value={user?.odDrinksTotal || 0} color="linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)" />
+          <StatCard icon={UI_SPRITES.drawings} label="Drawings" isSprite value={user?.odDrawings || 0} color="linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)" />
         </div>
 
         <div className="mt-4 p-4 rounded-2xl" style={{
@@ -273,23 +285,42 @@ export default function MeTab({ username, onThemeChange, currentTheme }: MeTabPr
           🍺 Log a Drink
         </h3>
 
-        <button
-          onClick={handleLogDrink}
-          className="w-full py-8 mb-4 transition-all transform hover:scale-105 active:scale-110"
-          style={{
-            background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
-            borderRadius: '24px',
-            color: 'white',
-            fontFamily: 'Fredoka, sans-serif',
-            fontSize: '24px',
-            fontWeight: '700',
-            boxShadow: '0 8px 24px rgba(251, 191, 36, 0.4)',
-            cursor: 'pointer',
-            border: 'none'
-          }}
-        >
-          🍻 CHEERS!
-        </button>
+        <div className="flex gap-3 mb-4">
+          <button
+            onClick={handleUnlogDrink}
+            className="flex-1 py-6 transition-all transform hover:scale-105 active:scale-95"
+            style={{
+              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+              borderRadius: '20px',
+              color: 'white',
+              fontFamily: 'Fredoka, sans-serif',
+              fontSize: '32px',
+              fontWeight: '700',
+              boxShadow: '0 6px 20px rgba(239, 68, 68, 0.4)',
+              cursor: 'pointer',
+              border: 'none'
+            }}
+          >
+            −
+          </button>
+          <button
+            onClick={handleLogDrink}
+            className="flex-1 py-6 transition-all transform hover:scale-105 active:scale-95"
+            style={{
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              borderRadius: '20px',
+              color: 'white',
+              fontFamily: 'Fredoka, sans-serif',
+              fontSize: '32px',
+              fontWeight: '700',
+              boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)',
+              cursor: 'pointer',
+              border: 'none'
+            }}
+          >
+            +
+          </button>
+        </div>
 
         <div className="flex justify-around">
           <div className="text-center">
@@ -333,19 +364,19 @@ export default function MeTab({ username, onThemeChange, currentTheme }: MeTabPr
       {/* Navigation Buttons */}
       <div className="grid grid-cols-2 gap-3">
         <NavButton
-          icon="📷"
+          icon={UI_SPRITES.camera} isSprite
           label="Profile Pic"
           color="linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)"
           onClick={() => setCurrentPage('profilePic')}
         />
         <NavButton
-          icon="🏆"
+          icon={UI_SPRITES.achievements} isSprite
           label="Achievements"
           color="linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)"
           onClick={() => setCurrentPage('achievements')}
         />
         <NavButton
-          icon="⚙️"
+          icon={UI_SPRITES.settings} isSprite
           label="Settings"
           color="linear-gradient(135deg, #6b7280 0%, #4b5563 100%)"
           onClick={() => setCurrentPage('settings')}
@@ -362,13 +393,17 @@ interface StatCardProps {
   color: string;
 }
 
-function StatCard({ icon, label, value, color }: StatCardProps) {
+function StatCard({ icon, label, value, color, isSprite }: StatCardProps) {
   return (
     <div className="p-4 rounded-2xl" style={{
       background: color,
       color: 'white'
     }}>
-      <div className="text-2xl mb-1">{icon}</div>
+      {isSprite ? (
+          <img src={icon} alt={label} className="mb-1" style={{ width: 28, height: 28, imageRendering: 'pixelated' }} />
+        ) : (
+          <div className="text-2xl mb-1">{icon}</div>
+        )}
       <div style={{
         fontSize: '12px',
         opacity: 0.9,
@@ -392,9 +427,10 @@ interface NavButtonProps {
   label: string;
   color: string;
   onClick: () => void;
+  isSprite?: boolean;
 }
 
-function NavButton({ icon, label, color, onClick }: NavButtonProps) {
+function NavButton({ icon, label, color, onClick, isSprite }: NavButtonProps) {
   return (
     <button
       onClick={onClick}
@@ -406,7 +442,11 @@ function NavButton({ icon, label, color, onClick }: NavButtonProps) {
         boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)'
       }}
     >
-      <span className="text-3xl">{icon}</span>
+      {isSprite ? (
+        <img src={icon} alt={label} style={{ width: 32, height: 32, imageRendering: 'pixelated' }} />
+      ) : (
+        <span className="text-3xl">{icon}</span>
+      )}
       <span style={{
         fontFamily: 'Fredoka, sans-serif',
         fontSize: '14px',
