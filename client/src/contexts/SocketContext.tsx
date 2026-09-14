@@ -258,7 +258,8 @@ interface SocketContextType {
 
   // Actions
   join: (username: string, password: string) => void;
-  forgotPassword: (username: string) => void;
+  forgotPassword: (username: string, adminCode: string) => void;
+  startNewNight: (adminCode: string) => void;
   clearJoinError: () => void;
   clearForgotPasswordResult: () => void;
   sendReaction: (emoji: string) => void;
@@ -463,6 +464,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       reactions: number;
       questions: number;
       drinks: number;
+      drinksTonight?: number;
       balls: { pokeball: number; great: number; ultra: number; master: number };
       stones: Record<string, number>;
       profilePic?: string | null;
@@ -484,8 +486,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         odName: username,
         odTitle: data.title || '',
         odCoins: data.coins,
-        odDrinksTonight: data.drinks,
-        odDrinksTotal: data.drinks,
+        odDrinksTonight: data.drinksTonight ?? 0,
+        odDrinksTotal: data.drinks || 0,
         odReactions: data.reactions,
         odQuestions: data.questions,
         odDrawings: 0,
@@ -969,6 +971,22 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       showNotice(data.message, 'error');
     });
 
+    newSocket.on('action-error', (data: { message: string }) => {
+      showNotice(data.message, 'error');
+    });
+
+    // The host wiped the board for a fresh session
+    newSocket.on('new-night', (data: { by: string }) => {
+      seenChatIds.current.clear();
+      setChatMessages([]);
+      setQueueMessages([]);
+      setDisplayedMessageId(null);
+      setFeed([]);
+      setActivePokemon(null);
+      setCatchResult(null);
+      showNotice(`${data.by} started a new night. Fresh chat, drinks reset.`, 'success');
+    });
+
     setSocket(newSocket);
 
     return () => {
@@ -1026,9 +1044,20 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     }
   }, [socket]);
 
-  const forgotPassword = useCallback((username: string) => {
+  const forgotPassword = useCallback((username: string, adminCode: string) => {
     setForgotPasswordResult(null);
-    socket?.emit('forgot-password', { username });
+    if (!socket) return;
+    // On the login screen the socket is not connected yet (it only connects to join)
+    if (socket.connected) {
+      socket.emit('forgot-password', { username, adminCode });
+    } else {
+      socket.once('connect', () => socket.emit('forgot-password', { username, adminCode }));
+      socket.connect();
+    }
+  }, [socket]);
+
+  const startNewNight = useCallback((adminCode: string) => {
+    socket?.emit('start-new-night', { adminCode });
   }, [socket]);
 
   const clearJoinError = useCallback(() => {
@@ -1225,6 +1254,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       emergency,
       join,
       forgotPassword,
+      startNewNight,
       clearJoinError,
       clearForgotPasswordResult,
       sendReaction,

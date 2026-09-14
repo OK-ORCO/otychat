@@ -23,6 +23,8 @@ npm run build     # builds client/ into public-react/ (what production serves)
 
 Environment variables live in `.env` (see `.env.example`): VAPID keys, `ADMIN_CODE`, optional `DATA_DIR`.
 
+`ADMIN_CODE` is also the "party code" the host types on a phone: it gates password resets (passwords are hashed, so a forgotten one is replaced with a fresh temp password shown on screen) and the Start a New Night button on the Fun tab. Tell it to the room; do not commit it.
+
 ---
 
 ## Project Overview
@@ -287,7 +289,8 @@ The names below are the ones actually emitted. `npm test` exercises most of them
 | Event | Payload |
 |-------|---------|
 | `join` | `{ username, password }` |
-| `forgot-password` | `{ username }` |
+| `forgot-password` | `{ username, adminCode }` resets to a fresh temp password (passwords are scrypt-hashed, never readable) |
+| `start-new-night` | `{ adminCode }` ends the session: clears chat + queue, hides the display, resets tonight's drinks |
 | `send-emoji` | `{ emoji }` |
 | `send-chat` / `send-to-queue` | `{ text?, drawing?, type }` |
 | `upvote-chat` | `{ messageId }` |
@@ -325,6 +328,8 @@ The names below are the ones actually emitted. `npm test` exercises most of them
 | `popcorn-emergency-invite` | `{ emergencyId, hostUsername, invitees, expiresAt }` |
 | `popcorn-emergency-status` | Host's live view of the emergency |
 | `popcorn-emergency-response` / `popcorn-emergency-ended` / `popcorn-emergency-error` | |
+| `new-night` / `action-error` | `{ by }` board wiped by the host / `{ message }` for refused host actions |
+| `evolvable-data` | Caught Pokemon that can evolve right now, with options; sent with `pokedex-data` |
 
 ### Server → Display (Chrome Extension)
 | Event | Payload |
@@ -370,7 +375,7 @@ Events fire twice in dev. Use ref-based deduplication (see patterns above).
 
 ## Testing
 
-`npm test` covers, over real sockets against a throwaway database: password login and errors, forgot-password, chat, queue, upvotes, show/hide on display, DMs with unread counts, drinks, spawn/catch/pokedex, shop purchase, profile lookup, Popcorn Emergency (invite, response, end, host disconnect, single-target), admin-gated routes, asset upload and the SPA fallback.
+`npm test` covers, over real sockets against a throwaway database: password login and errors, host-gated password reset and hashing, emoji rate limit, new night, chat, queue, upvotes, show/hide on display, DMs with unread counts, drinks, spawn/catch/pokedex, shop purchase, profile lookup, Popcorn Emergency (invite, response, end, host disconnect, single-target), admin-gated routes, asset upload and the SPA fallback.
 
 Still manual, on a phone against the deployed server:
 - [ ] Emoji reactions and the question card appear on the Slides overlay

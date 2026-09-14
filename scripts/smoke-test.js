@@ -123,6 +123,7 @@ async function main() {
   log(`server up on ${BASE}, data in ${DATA_DIR}`);
 
   let alice, bob, display;
+  let alicePassword = 'pw-a';
   let chatId, queueId;
 
   await test('health route answers', async () => {
@@ -190,14 +191,51 @@ async function main() {
     s.disconnect();
   });
 
-  await test('forgot password returns the stored password', async () => {
+  await test('forgot password needs the party code and resets to a fresh password', async () => {
     const s = connect();
     await waitFor(s, 'connect');
+    const denied = waitFor(s, 'forgot-password-result');
+    s.emit('forgot-password', { username: 'alice', adminCode: 'nope' });
+    assert((await denied).success === false, 'wrong code must fail');
+
     const r = waitFor(s, 'forgot-password-result');
-    s.emit('forgot-password', { username: 'alice' });
+    s.emit('forgot-password', { username: 'alice', adminCode: ADMIN_CODE });
     const res = await r;
-    assert(res.success && res.password === 'pw-a', JSON.stringify(res));
+    assert(res.success && typeof res.password === 'string' && res.password !== 'pw-a', JSON.stringify(res));
     s.disconnect();
+
+    // old password is dead, new one works; then put the original back for later tests
+    const s2 = connect();
+    await waitFor(s2, 'connect');
+    const rejected = waitFor(s2, 'join-error');
+    s2.emit('join', { username: 'alice', password: 'pw-a' });
+    assert((await rejected).code === 'WRONG_PASSWORD', 'old password rejected');
+    const ok = waitFor(s2, 'trainer-stats');
+    s2.emit('join', { username: 'alice', password: res.password });
+    await ok;
+    s2.disconnect();
+    const s3 = connect();
+    await waitFor(s3, 'connect');
+    const back = waitFor(s3, 'forgot-password-result');
+    s3.emit('forgot-password', { username: 'alice', adminCode: ADMIN_CODE });
+    const reset = await back;
+    s3.disconnect();
+    // re-login with the newest temp password and keep alice's socket alive for later tests
+    alice.disconnect();
+    const s4 = connect();
+    await waitFor(s4, 'connect');
+    const st = waitFor(s4, 'trainer-stats');
+    s4.emit('join', { username: 'alice', password: reset.password });
+    await st;
+    alice = s4;
+    alicePassword = reset.password;
+  });
+
+  await test('stored passwords are hashed, not plaintext', async () => {
+    const res = await fetch(`${BASE}/api/test/password-shape?username=alice`, { headers: { 'x-admin-code': ADMIN_CODE } });
+    assert(res.ok, `shape route ${res.status}`);
+    const body = await res.json();
+    assert(body.hashed === true && body.startsWith === 'scrypt$', JSON.stringify(body));
   });
 
   await test('second user joins; first user sees them online with real profile', async () => {
@@ -215,6 +253,16 @@ async function main() {
     await waitFor(display, 'connect');
     display.emit('join-display');
     await waitFor(display, 'user-count');
+  });
+
+  await test('emoji spam is rate limited', async () => {
+    let blasts = 0;
+    const counter = () => { blasts++; };
+    bob.on('emoji-blast', counter);
+    for (let i = 0; i < 20; i++) alice.emit('send-emoji', { emoji: '🔥' });
+    await new Promise(r => setTimeout(r, 600));
+    bob.off('emoji-blast', counter);
+    assert(blasts >= 3 && blasts <= 7, `expected a small burst, got ${blasts}`);
   });
 
   await test('chat message reaches everyone', async () => {
@@ -374,7 +422,7 @@ async function main() {
     const s2 = connect();
     await waitFor(s2, 'connect');
     const rejoined = waitFor(s2, 'trainer-stats');
-    s2.emit('join', { username: 'alice', password: 'pw-a' });
+    s2.emit('join', { username: 'alice', password: alicePassword });
     const before = await rejoined;
     alice = s2;
     assert(before.balls.great === 10, `granted balls ${before.balls.great}`);
@@ -392,7 +440,7 @@ async function main() {
     const s3 = connect();
     await waitFor(s3, 'connect');
     const evolvable = waitFor(s3, 'evolvable-data', list => list.some(e => e.pokemonId === 133));
-    s3.emit('join', { username: 'alice', password: 'pw-a' });
+    s3.emit('join', { username: 'alice', password: alicePassword });
     const list = await evolvable;
     alice = s3;
     const eevee = list.find(e => e.pokemonId === 133);
@@ -455,6 +503,38 @@ async function main() {
     const ended = waitFor(bob, 'popcorn-emergency-ended');
     alice.disconnect();
     await ended;
+  });
+
+  await test('new night needs the party code, then wipes chat and queue and resets drinks', async () => {
+    // the host-disconnect test above dropped alice; bring her back
+    alice = await joinAs('alice', alicePassword);
+    const denied = waitFor(alice, 'action-error');
+    alice.emit('start-new-night', { adminCode: 'nope' });
+    await denied;
+
+    // have a drink and a chat message on the board first
+    const drank = waitFor(alice, 'drink-logged', d => d.tonight >= 1);
+    alice.emit('log-drink');
+    await drank;
+    const posted = waitFor(bob, 'chat-message-added', m => m.text === 'last words');
+    alice.emit('send-chat', { text: 'last words', type: 'text' });
+    await posted;
+
+    const night = waitFor(bob, 'new-night');
+    const bobChat = waitFor(bob, 'chat-sync', c => c.length === 0);
+    const aliceStats = waitFor(alice, 'trainer-stats', s => s.drinksTonight === 0 && s.drinks >= 1);
+    const hidden = waitFor(alice, 'display-question-changed', d => d.messageId === null);
+    alice.emit('start-new-night', { adminCode: ADMIN_CODE });
+    const [n] = await Promise.all([night, bobChat, aliceStats, hidden]);
+    assert(n.by === 'alice', 'announced by host');
+
+    // a fresh join sees an empty room
+    const s = connect();
+    await waitFor(s, 'connect');
+    const chat = waitFor(s, 'chat-sync');
+    s.emit('join', { username: 'bob', password: 'pw-b' });
+    assert((await chat).length === 0, 'chat empty after new night');
+    s.disconnect();
   });
 
   await test('asset upload lands in the data volume', async () => {

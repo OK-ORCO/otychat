@@ -98,6 +98,14 @@ app.get('/api/admin/assets', (req, res) => {
   res.json(counts);
 });
 
+// Lets the smoke test confirm passwords are never stored readable
+app.get('/api/test/password-shape', (req, res) => {
+  const user = db.getUserByUsername(String(req.query.username || ''));
+  if (!user) return res.status(404).json({ error: 'no such user' });
+  const stored = String(user.password || '');
+  res.json({ hashed: stored.startsWith('scrypt$'), startsWith: stored.slice(0, 7), length: stored.length });
+});
+
 // Grant test Pokemon and items to a user
 app.post('/api/test/grant-pokemon', async (req, res) => {
   const { username } = req.body;
@@ -343,6 +351,41 @@ function socketIdForUsername(username) {
   return null;
 }
 
+/** Every socket a user has open (phone plus a second tab counts). */
+function socketIdsForUsername(username) {
+  const ids = [];
+  for (const [socketId, data] of connectedUsers.entries()) {
+    if (data.username === username) ids.push(socketId);
+  }
+  return ids;
+}
+
+function emitToUser(username, event, payload) {
+  socketIdsForUsername(username).forEach(sid => io.to(sid).emit(event, payload));
+}
+
+const TEMP_WORDS = ['sunny', 'fuzzy', 'sleepy', 'zesty', 'lucky', 'jolly', 'mighty', 'sparkly',
+  'otter', 'panda', 'mango', 'taco', 'pickle', 'waffle', 'comet', 'dino'];
+function generateTempPassword() {
+  const pick = () => TEMP_WORDS[Math.floor(Math.random() * TEMP_WORDS.length)];
+  return `${pick()}-${pick()}-${Math.floor(10 + Math.random() * 90)}`;
+}
+
+// Emoji spam guard: a small bucket per socket, refilled steadily. Excess taps
+// are dropped without XP or a blast.
+const EMOJI_BURST = 5;
+const EMOJI_REFILL_MS = 400;
+function takeEmojiToken(socket) {
+  const now = Date.now();
+  const bucket = socket.data.emojiBucket || { tokens: EMOJI_BURST, last: now };
+  bucket.tokens = Math.min(EMOJI_BURST, bucket.tokens + (now - bucket.last) / EMOJI_REFILL_MS);
+  bucket.last = now;
+  socket.data.emojiBucket = bucket;
+  if (bucket.tokens < 1) return false;
+  bucket.tokens -= 1;
+  return true;
+}
+
 function emergencyPublicState() {
   if (!activeEmergency) return null;
   return {
@@ -365,10 +408,7 @@ function endEmergency(reason = 'ended') {
   activeEmergency = null;
 
   io.to(hostSocketId).emit('popcorn-emergency-ended', { reason });
-  invitees.forEach(username => {
-    const sid = socketIdForUsername(username);
-    if (sid) io.to(sid).emit('popcorn-emergency-ended', { reason });
-  });
+  invitees.forEach(username => emitToUser(username, 'popcorn-emergency-ended', { reason }));
   if (isAll) emitToDisplay('popcorn-emergency-end');
   console.log(`[Popcorn] Emergency ${reason}`);
 }
@@ -492,8 +532,9 @@ function sendTrainerStats(socket, user) {
   const unlockedZones = db.getUnlockedZones(user.trainer_level);
 
   socket.emit('trainer-stats', {
-    // Basic stats
+    // Basic stats (all-time), plus this session's drinks
     ...totals,
+    drinksTonight: getUserStats(user.id).drinks || 0,
     id: user.id,
     username: user.username,
     coins: user.coins,
@@ -868,10 +909,15 @@ io.on('connection', (socket) => {
     console.log(`[User] ${trimmedUsername} joined (Level ${user.trainer_level}, Zone: ${user.current_zone})`);
   });
 
-  // Forgot password - just tell them their password (it's for friends, no security needed)
-  socket.on('forgot-password', ({ username }) => {
+  // Forgot password: passwords are hashed, so the host (who knows the party code,
+  // and is in the room) resets it to a fresh one that is shown on screen.
+  socket.on('forgot-password', ({ username, adminCode } = {}) => {
     if (!username) {
       socket.emit('forgot-password-result', { success: false, message: 'Please enter your username' });
+      return;
+    }
+    if (adminCode !== ADMIN_CODE) {
+      socket.emit('forgot-password-result', { success: false, message: 'Wrong party code. Ask the host.' });
       return;
     }
 
@@ -881,10 +927,13 @@ io.on('connection', (socket) => {
       return;
     }
 
+    const newPassword = generateTempPassword();
+    db.setPassword(user.username, newPassword);
+    console.log(`[Auth] Password reset for ${user.username}`);
     socket.emit('forgot-password-result', {
       success: true,
-      password: user.password || '(no password set)',
-      message: `Your password is: ${user.password || '(no password set)'}`
+      password: newPassword,
+      message: `Password reset. Your new password is: ${newPassword}`
     });
   });
 
@@ -985,8 +1034,9 @@ io.on('connection', (socket) => {
   // ----------------------------------------
 
   socket.on('send-emoji', ({ emoji }) => {
-    console.log(`[Emoji] ${socket.data.username} sent: ${emoji}`);
     if (!socket.data.userId) return;
+    if (!takeEmojiToken(socket)) return;
+    console.log(`[Emoji] ${socket.data.username} sent: ${emoji}`);
 
     if (currentPresentation) {
       db.incrementReactions(socket.data.userId, currentPresentation.id);
@@ -1306,16 +1356,8 @@ io.on('connection', (socket) => {
       odCreatedAt: savedDM.created_at
     };
 
-    // Check if recipient is online
-    const recipientEntry = [...connectedUsers.entries()]
-      .find(([_, data]) => data.username === toUsername);
-
-    if (recipientEntry) {
-      const [recipientSocketId, recipientData] = recipientEntry;
-      // Send to recipient in real-time
-      io.to(recipientSocketId).emit('dm-received', dmData);
-
-    }
+    // Every device the recipient has open gets it live
+    emitToUser(recipientUser.username, 'dm-received', dmData);
 
     // Push notification to the recipient whether or not they are online. Online
     // phones that are backgrounded only hear about it this way.
@@ -1438,17 +1480,12 @@ io.on('connection', (socket) => {
       coins: KUDOS_COINS
     });
 
-    // Notify receiver if online
-    const recipientEntry = [...connectedUsers.entries()]
-      .find(([_, data]) => data.username === toUsername);
-    if (recipientEntry) {
-      const [recipientSocketId] = recipientEntry;
-      io.to(recipientSocketId).emit('kudos-received', {
-        fromUsername,
-        message: message || '',
-        coins: KUDOS_COINS
-      });
-    }
+    // Notify receiver on every device they have open
+    emitToUser(toUser.username, 'kudos-received', {
+      fromUsername,
+      message: message || '',
+      coins: KUDOS_COINS
+    });
 
     // Broadcast to feed
     io.emit('feed-event', {
@@ -1518,8 +1555,7 @@ io.on('connection', (socket) => {
       expiresAt: activeEmergency.createdAt + EMERGENCY_TTL_MS
     };
     names.forEach(username => {
-      const sid = socketIdForUsername(username);
-      if (sid) io.to(sid).emit('popcorn-emergency-invite', invitePayload);
+      emitToUser(username, 'popcorn-emergency-invite', invitePayload);
       const invitee = db.getUserByUsername(username);
       if (invitee) {
         push.sendNotification(invitee.id, {
@@ -1563,6 +1599,41 @@ io.on('connection', (socket) => {
     if (!socket.data.userId || !activeEmergency) return;
     if (activeEmergency.hostUsername !== socket.data.username) return;
     endEmergency('ended');
+  });
+
+  // ----------------------------------------
+  // NEW NIGHT (host only, via party code)
+  // ----------------------------------------
+
+  socket.on('start-new-night', ({ adminCode } = {}) => {
+    if (!socket.data.userId) return;
+    if (adminCode !== ADMIN_CODE) {
+      socket.emit('action-error', { message: 'Wrong party code' });
+      return;
+    }
+
+    if (currentPresentation) db.endPresentation(currentPresentation.id);
+    currentPresentation = db.startPresentation('Hangout');
+    db.clearQueue();
+    db.clearChatMessages();
+    hideDisplayedQuestion();
+    // Phones reset their "on the big screen" state even if nothing was up
+    io.emit('display-question-changed', { messageId: null });
+    endEmergency('new-night');
+    userSpawns.clear();
+    catchAttempts.clear();
+
+    io.emit('new-night', { by: socket.data.username, presentationId: currentPresentation.id });
+    connectedUsers.forEach((data, socketId) => {
+      const s = io.sockets.sockets.get(socketId);
+      if (!s || !s.data.userId) return;
+      db.ensureStats(s.data.userId, currentPresentation.id);
+      const u = db.getUserById(s.data.userId);
+      if (u) sendTrainerStats(s, u);
+      s.emit('chat-sync', []);
+      s.emit('queue-sync', []);
+    });
+    console.log(`[Night] ${socket.data.username} started a new night (${currentPresentation.id})`);
   });
 
   // ----------------------------------------

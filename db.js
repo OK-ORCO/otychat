@@ -6,6 +6,7 @@
 const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 // Database file path. DATA_DIR is overridable so a hosted deploy (Railway volume)
 // can keep the database outside the repo checkout.
@@ -365,9 +366,28 @@ function getLastInsertId() {
 // USER FUNCTIONS
 // ============================================
 
+// Passwords are stored as scrypt hashes ("scrypt$salt$hash"). Rows written before
+// hashing existed hold plaintext; they are upgraded on the next successful login.
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(String(password), salt, 32).toString('hex');
+  return `scrypt$${salt}$${hash}`;
+}
+
+function passwordMatches(stored, password) {
+  if (!stored) return password === '';
+  if (stored.startsWith('scrypt$')) {
+    const [, salt, hash] = stored.split('$');
+    const candidate = crypto.scryptSync(String(password), salt, 32);
+    const expected = Buffer.from(hash, 'hex');
+    return candidate.length === expected.length && crypto.timingSafeEqual(candidate, expected);
+  }
+  return stored === password;
+}
+
 function createUser(username, password = '') {
   // Try to insert, ignore if exists
-  runSql(`INSERT OR IGNORE INTO users (username, password) VALUES (?, ?)`, [username, password]);
+  runSql(`INSERT OR IGNORE INTO users (username, password) VALUES (?, ?)`, [username, password ? hashPassword(password) : '']);
   return queryOne(`SELECT * FROM users WHERE username = ?`, [username]);
 }
 
@@ -377,7 +397,7 @@ function createUserWithPassword(username, password) {
   if (existing) {
     return null; // User already exists
   }
-  runSql(`INSERT INTO users (username, password) VALUES (?, ?)`, [username, password]);
+  runSql(`INSERT INTO users (username, password) VALUES (?, ?)`, [username, hashPassword(password)]);
   return queryOne(`SELECT * FROM users WHERE username = ?`, [username]);
 }
 
@@ -388,8 +408,12 @@ function getUserByUsername(username) {
 function verifyPassword(username, password) {
   const user = queryOne(`SELECT * FROM users WHERE username = ?`, [username]);
   if (!user) return { exists: false, valid: false, user: null };
-  if (user.password === password) return { exists: true, valid: true, user };
-  return { exists: true, valid: false, user: null };
+  if (!passwordMatches(user.password, password)) return { exists: true, valid: false, user: null };
+  if (!String(user.password || '').startsWith('scrypt$')) {
+    // Legacy plaintext row: upgrade now that we know the password is right
+    setPassword(username, password);
+  }
+  return { exists: true, valid: true, user };
 }
 
 function getPassword(username) {
@@ -398,7 +422,7 @@ function getPassword(username) {
 }
 
 function setPassword(username, password) {
-  return runSql(`UPDATE users SET password = ? WHERE username = ?`, [password, username]);
+  return runSql(`UPDATE users SET password = ? WHERE username = ?`, [hashPassword(password), username]);
 }
 
 function getUserById(id) {
@@ -1062,6 +1086,11 @@ function dismissFromQueue(messageId) {
   return runSql(`UPDATE chat_messages SET in_queue = 0 WHERE id = ?`, [messageId]);
 }
 
+function clearChatMessages() {
+  runSql(`DELETE FROM chat_votes`);
+  runSql(`DELETE FROM chat_messages`);
+}
+
 function clearQueue() {
   return runSql(`UPDATE chat_messages SET in_queue = 0 WHERE in_queue = 1`);
 }
@@ -1191,7 +1220,8 @@ module.exports = {
   getQueueMessages,
   getQueueCount,
   dismissFromQueue,
-  clearQueue
+  clearQueue,
+  clearChatMessages
 };
 
 // ============================================

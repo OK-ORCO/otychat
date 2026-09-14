@@ -24,12 +24,48 @@ function formatSeconds(s: number) {
 }
 
 /**
+ * Two-tone siren synthesised on the spot, so there is no audio file to ship.
+ * Browsers only allow this after the user has touched the page, which anyone
+ * who has tapped a tab already has.
+ */
+function playAlarm() {
+  try {
+    const Ctx = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const gain = ctx.createGain();
+    gain.gain.value = 0.15;
+    gain.connect(ctx.destination);
+    const osc = ctx.createOscillator();
+    osc.type = 'square';
+    osc.connect(gain);
+    const t0 = ctx.currentTime;
+    for (let i = 0; i < 6; i++) {
+      osc.frequency.setValueAtTime(i % 2 === 0 ? 880 : 660, t0 + i * 0.25);
+    }
+    gain.gain.setValueAtTime(0.15, t0 + 1.4);
+    gain.gain.linearRampToValueAtTime(0, t0 + 1.6);
+    osc.start(t0);
+    osc.stop(t0 + 1.6);
+    osc.onended = () => ctx.close();
+  } catch {
+    // Audio is a nicety; never let it break the modal
+  }
+}
+
+/**
  * Full-screen takeover an invitee sees. It cannot be swiped away: the only exits
  * are Accept or Decline, after which a short confirmation shows with a Close button.
  */
 export function EmergencyInviteModal() {
   const { emergency, respondEmergency, dismissEmergency } = useSocket();
   const secondsLeft = useCountdown(emergency?.expiresAt);
+  const emergencyId = emergency?.role === 'invitee' && !emergency.myResponse ? emergency.id : null;
+
+  useEffect(() => {
+    if (emergencyId) playAlarm();
+  }, [emergencyId]);
+
   if (!emergency || emergency.role !== 'invitee') return null;
 
   const responded = emergency.myResponse;

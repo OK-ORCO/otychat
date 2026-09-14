@@ -3,9 +3,11 @@ import { useSocket } from '../../../contexts/SocketContext';
 import { EmergencyHostStatus } from '../PopcornEmergency';
 
 export default function FunTab() {
-  const { user, onlineUsers, emergency, startEmergency, queueMessages, chatMessages, displayedMessageId, hideFromDisplay } = useSocket();
+  const { user, onlineUsers, emergency, startEmergency, queueMessages, chatMessages, displayedMessageId, hideFromDisplay, startNewNight } = useSocket();
   const [picking, setPicking] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [nightOpen, setNightOpen] = useState(false);
+  const [partyCode, setPartyCode] = useState('');
 
   const others = onlineUsers.filter(u => u.odName !== user?.odName);
   const allSelected = others.length > 0 && others.every(u => selected.has(u.odName));
@@ -160,6 +162,51 @@ export default function FunTab() {
           <p className="mt-2" style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
             Nothing is up right now. Send a message to the queue from Chat, then tap the screen icon on it.
           </p>
+        )}
+      </div>
+
+      <div className="p-5 rounded-3xl" style={{ background: 'white', boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)' }}>
+        <h3 style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '16px', fontWeight: '700', color: 'var(--text)' }}>
+          🌙 Start a new night
+        </h3>
+        <p className="mt-1" style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+          Clears the chat and queue, resets everyone's drinks for tonight. Pokémon, coins and DMs stay. Host only.
+        </p>
+        {!nightOpen ? (
+          <button
+            onClick={() => setNightOpen(true)}
+            className="w-full mt-3 py-3 rounded-2xl"
+            style={{ background: 'var(--bg-secondary)', color: 'var(--text)', border: 'none', fontFamily: 'Fredoka, sans-serif', fontSize: '14px', fontWeight: '600' }}
+          >
+            I am the host
+          </button>
+        ) : (
+          <div className="mt-3 flex gap-2">
+            <input
+              type="text"
+              value={partyCode}
+              onChange={(e) => setPartyCode(e.target.value)}
+              placeholder="Party code"
+              autoCapitalize="none"
+              className="flex-1 px-4 py-3 outline-none"
+              style={{ background: 'var(--bg-secondary)', borderRadius: '14px', border: 'none', fontFamily: 'Nunito, sans-serif', fontSize: '15px', minWidth: 0 }}
+            />
+            <button
+              onClick={() => { if (partyCode.trim()) { startNewNight(partyCode.trim()); setNightOpen(false); setPartyCode(''); } }}
+              disabled={!partyCode.trim()}
+              className="px-4 py-3 rounded-2xl transition-all active:scale-95"
+              style={{
+                background: partyCode.trim() ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' : 'var(--bg-secondary)',
+                color: partyCode.trim() ? 'white' : 'var(--text-muted)',
+                border: 'none',
+                fontFamily: 'Fredoka, sans-serif',
+                fontSize: '14px',
+                fontWeight: '700'
+              }}
+            >
+              Reset
+            </button>
+          </div>
         )}
       </div>
     </div>

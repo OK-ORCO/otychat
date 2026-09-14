@@ -443,7 +443,33 @@
   let popcornResponders = {};
   let popcornKernelInterval = null;
 
+  function playAlarm() {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const gain = ctx.createGain();
+      gain.gain.value = 0.2;
+      gain.connect(ctx.destination);
+      const osc = ctx.createOscillator();
+      osc.type = 'square';
+      osc.connect(gain);
+      const t0 = ctx.currentTime;
+      for (let i = 0; i < 8; i++) {
+        osc.frequency.setValueAtTime(i % 2 === 0 ? 880 : 660, t0 + i * 0.25);
+      }
+      gain.gain.setValueAtTime(0.2, t0 + 1.9);
+      gain.gain.linearRampToValueAtTime(0, t0 + 2.1);
+      osc.start(t0);
+      osc.stop(t0 + 2.1);
+      osc.onended = () => ctx.close();
+    } catch (err) {
+      // Presenter may not have interacted with the page yet; the takeover still shows
+    }
+  }
+
   function showPopcornEmergency(data) {
+    playAlarm();
     const container = document.getElementById('otychat-popcorn-emergency');
     const hostEl = document.getElementById('popcorn-host');
     const respondersEl = document.getElementById('popcorn-responders');

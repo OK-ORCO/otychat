@@ -16,7 +16,7 @@ interface JoinScreenProps {
   onlineCount: number;
   joinError: JoinError | null;
   onClearError: () => void;
-  onForgotPassword: (username: string) => void;
+  onForgotPassword: (username: string, adminCode: string) => void;
   forgotPasswordResult: ForgotPasswordResult | null;
   onClearForgotPassword: () => void;
 }
@@ -34,6 +34,7 @@ export default function JoinScreen({
   const [password, setPassword] = useState('');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotUsername, setForgotUsername] = useState('');
+  const [partyCode, setPartyCode] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,10 +43,12 @@ export default function JoinScreen({
     }
   };
 
+  const canReset = forgotUsername.trim().length > 0 && partyCode.trim().length > 0;
+
   const handleForgotPassword = (e: React.FormEvent) => {
     e.preventDefault();
-    if (forgotUsername.trim()) {
-      onForgotPassword(forgotUsername.trim());
+    if (canReset) {
+      onForgotPassword(forgotUsername.trim(), partyCode.trim());
     }
   };
 
@@ -53,6 +56,7 @@ export default function JoinScreen({
     setShowForgotPassword(false);
     onClearForgotPassword();
     setForgotUsername('');
+    setPartyCode('');
   };
 
   // Forgot Password Screen
@@ -85,7 +89,7 @@ export default function JoinScreen({
               fontFamily: 'Nunito, sans-serif',
               fontWeight: '600'
             }}>
-              No worries, we'll tell you!
+              Ask the host to reset it for you.
             </p>
           </div>
 
@@ -105,7 +109,7 @@ export default function JoinScreen({
                       fontSize: '16px',
                       color: 'var(--text)',
                     }}>
-                      Your password is:
+                      Password reset. Your new password is:
                     </p>
                     <div className="px-4 py-3 rounded-xl" style={{
                       background: 'linear-gradient(135deg, #10b981 0%, #06b6d4 100%)',
@@ -177,27 +181,58 @@ export default function JoinScreen({
                   />
                 </div>
 
+                <div>
+                  <label className="block mb-3" style={{
+                    fontFamily: 'Fredoka, sans-serif',
+                    fontSize: '14px',
+                    color: 'var(--text)',
+                    fontWeight: '600'
+                  }}>
+                    Party code (ask the host)
+                  </label>
+                  <input
+                    type="text"
+                    value={partyCode}
+                    onChange={(e) => setPartyCode(e.target.value)}
+                    maxLength={40}
+                    placeholder="Party code"
+                    autoCapitalize="none"
+                    className="w-full px-5 py-4 outline-none transition-all"
+                    style={{
+                      background: 'var(--bg-secondary)',
+                      fontFamily: 'Nunito, sans-serif',
+                      fontSize: '16px',
+                      borderRadius: '16px',
+                      border: '2px solid transparent',
+                      boxShadow: partyCode ? '0 0 0 2px #3b82f6' : 'none'
+                    }}
+                  />
+                  <p className="mt-2" style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    Passwords are not stored readable, so the host resets it to a new one for you.
+                  </p>
+                </div>
+
                 <button
                   type="submit"
-                  disabled={!forgotUsername.trim()}
+                  disabled={!canReset}
                   className="w-full px-6 py-4 transition-all transform hover:scale-105 active:scale-95"
                   style={{
-                    background: forgotUsername.trim()
+                    background: canReset
                       ? 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)'
                       : 'var(--bg-secondary)',
                     borderRadius: '20px',
-                    color: forgotUsername.trim() ? 'white' : 'var(--text-muted)',
+                    color: canReset ? 'white' : 'var(--text-muted)',
                     fontFamily: 'Fredoka, sans-serif',
                     fontSize: '18px',
                     fontWeight: '600',
-                    boxShadow: forgotUsername.trim()
+                    boxShadow: canReset
                       ? '0 8px 24px rgba(59, 130, 246, 0.4)'
                       : 'none',
-                    cursor: forgotUsername.trim() ? 'pointer' : 'not-allowed',
+                    cursor: canReset ? 'pointer' : 'not-allowed',
                     border: 'none'
                   }}
                 >
-                  Show My Password
+                  Reset My Password
                 </button>
 
                 <button
