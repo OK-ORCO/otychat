@@ -180,7 +180,7 @@ Simple username entry with animated background. Credentials cached in localStora
 
 ### 6. Fun Tab
 
-The "Fun" tab is a collection of interactive tools and features for the hangout. Designed to be extensible for future additions.
+The "Fun" tab is a collection of interactive tools for the room.
 
 ```
 ┌─────────────────────────────────────────┐
@@ -188,22 +188,21 @@ The "Fun" tab is a collection of interactive tools and features for the hangout.
 │                                         │
 │  ┌─────────────────────────────────────┐│
 │  │  🍿 POPCORN EMERGENCY               ││
-│  │                                     ││
 │  │  Need everyone's attention?         ││
-│  │  Sound the alarm!                   ││
-│  │                                     ││
+│  │  Sound the alarm.                   ││
 │  │  [    🚨 SEND EMERGENCY    ]        ││
 │  └─────────────────────────────────────┘│
 │                                         │
 │  ┌─────────────────────────────────────┐│
-│  │  🎲 Coming Soon                     ││
-│  │  • Polls & Voting                   ││
-│  │  • Group Challenges                 ││
-│  │  • Trivia Mode                      ││
+│  │  📺 On the big screen               ││
+│  │  alice: Is this thing on?           ││
+│  │  [    Hide from display    ]        ││
 │  └─────────────────────────────────────┘│
-│                                         │
 └─────────────────────────────────────────┘
 ```
+
+- While the user is hosting an emergency, the Popcorn card is replaced by the live status panel (who accepted / declined / pending, countdown, Close button).
+- "On the big screen" mirrors whatever the Slides overlay is currently showing from the question queue, with a Hide button. Anyone can hide it.
 
 **Future Fun Tab Ideas:**
 - **Polls & Voting** - Quick group decisions
@@ -520,7 +519,7 @@ npm install
 npm run dev
 ```
 
-Frontend: http://localhost:5176
+Frontend: http://localhost:5173
 Backend: http://localhost:3000
 
 ---
@@ -668,4 +667,4 @@ otychat-extension/
 - Pokémon trading between users
 - Custom emoji upload
 - End-of-night awards ceremony
-- Mr. Cheese hardware integration
+- Evolution UI (the server already supports stone and level evolutions; no screen calls it yet)

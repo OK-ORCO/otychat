@@ -25,7 +25,7 @@ description: Start OtyChat backend and frontend servers
    ```bash
    cd /c/Users/chase/Projects/OtyChat/client && npm run dev
    ```
-   Frontend runs on http://localhost:5176
+   Frontend runs on http://localhost:5173
 
 3. Report both URLs to the user when ready.
 
@@ -47,9 +47,9 @@ description: Check if backend and frontend servers are running
    netstat -ano | findstr :3000
    ```
 
-2. Check if port 5176 (frontend) is in use:
+2. Check if port 5173 (frontend) is in use:
    ```bash
-   netstat -ano | findstr :5176
+   netstat -ano | findstr :5173
    ```
 
 3. Report status of both servers to the user.

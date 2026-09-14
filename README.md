@@ -25,13 +25,22 @@ A real-time presentation companion app for in-person hangouts.
 npm install
 npm start
 
-# Frontend (port 5176)
+# Frontend (port 5173)
 cd client
 npm install
 npm run dev
 ```
 
-Open http://localhost:5176 in your browser.
+Open http://localhost:5173 in your browser (a phone-sized window; the app is mobile-only).
+
+```bash
+npm test        # end-to-end socket smoke test
+npm run build   # build the client; the backend then serves it at /
+```
+
+## Deploying
+
+Runs as a single Node service on Railway. See "Deploying to Railway" in `CLAUDE.md` for the volume, variables and the one-time asset upload.
 
 ## Documentation
 
