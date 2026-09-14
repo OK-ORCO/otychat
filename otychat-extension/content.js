@@ -171,6 +171,7 @@
       socket.on('drink-logged', (data) => showToast('🍺', 'Cheers!', `${data.username} logged drink #${data.count}`));
       socket.on('drawing-blast', (data) => showDrawingBlast(data));
       socket.on('pokemon-spawn-wave', () => showToast('🌿', 'Wild Pokémon appeared!', 'Check your phones'));
+      socket.on('stunt', (data) => runStunt(data));
 
       // Popcorn Emergency
       socket.on('popcorn-emergency-start', (data) => {
@@ -449,6 +450,231 @@
     }
     if (data.text) card.appendChild(el('div', 'otychat-doodle-text', data.text));
     mount(card, 6000);
+  }
+
+  // ============================================
+  // STUNTS (bought with coins from the shop)
+  // ============================================
+
+  const CONFETTI_COLORS = ['#ec4899', '#8b5cf6', '#3b82f6', '#06b6d4', '#10b981', '#fbbf24', '#f97316', '#ef4444'];
+
+  function runStunt(data) {
+    const who = data.username || 'Someone';
+    switch (data.kind) {
+      case 'confetti':
+        fireConfetti();
+        showToast('🎉', 'Confetti cannon', `${who} fired it`);
+        break;
+      case 'airhorn':
+        playAirhorn();
+        showToast('📯', 'Airhorn', who);
+        break;
+      case 'drumroll':
+        playDrumroll();
+        showToast('🥁', 'Drumroll', who);
+        break;
+      case 'sad_trombone':
+        playSadTrombone();
+        showToast('🎺', 'Sad trombone', who);
+        break;
+      case 'rimshot':
+        playRimshot();
+        showToast('🥁', 'Ba dum tss', who);
+        break;
+      case 'spotlight':
+        showSpotlight(data);
+        break;
+      default:
+        break;
+    }
+  }
+
+  function fireConfetti() {
+    const count = 140;
+    for (let i = 0; i < count; i++) {
+      const piece = el('div', 'otychat-confetti');
+      const size = 8 + Math.random() * 8;
+      piece.style.left = `${Math.random() * 100}%`;
+      piece.style.width = `${size}px`;
+      piece.style.height = `${size * (0.4 + Math.random() * 0.6)}px`;
+      piece.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+      piece.style.animationDuration = `${3 + Math.random() * 2.5}s`;
+      piece.style.animationDelay = `${Math.random() * 0.8}s`;
+      piece.style.setProperty('--drift', `${(Math.random() - 0.5) * 240}px`);
+      piece.style.setProperty('--spin', `${Math.round(360 + Math.random() * 720)}deg`);
+      overlayContainer.appendChild(piece);
+      setTimeout(() => piece.remove(), 6500);
+    }
+  }
+
+  function showSpotlight(data) {
+    const banner = el('div', 'otychat-spotlight');
+    banner.style.setProperty('--glow', data.userColor || '#ec4899');
+    const bulbs = el('div', 'otychat-spotlight-bulbs');
+    for (let i = 0; i < 28; i++) bulbs.appendChild(el('span', 'otychat-bulb'));
+    banner.appendChild(bulbs);
+    banner.appendChild(el('div', 'otychat-spotlight-label', 'Now appearing'));
+    banner.appendChild(el('div', 'otychat-spotlight-name', data.username || ''));
+    if (data.message) banner.appendChild(el('div', 'otychat-spotlight-message', data.message));
+    mount(banner, 10000);
+  }
+
+  // --- synthesised soundboard: nothing to host, nothing to load ---
+
+  function audioContext() {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    return Ctx ? new Ctx() : null;
+  }
+
+  function noiseBuffer(ctx, seconds) {
+    const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * seconds), ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    return buffer;
+  }
+
+  function finish(ctx, seconds) {
+    setTimeout(() => ctx.close(), seconds * 1000 + 200);
+  }
+
+  function playAirhorn() {
+    const ctx = audioContext();
+    if (!ctx) return;
+    const t0 = ctx.currentTime;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(0.35, t0 + 0.05);
+    gain.gain.setValueAtTime(0.35, t0 + 1.3);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.7);
+    gain.connect(ctx.destination);
+    [0, 7, -5].forEach(detune => {
+      const osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(380, t0);
+      osc.frequency.exponentialRampToValueAtTime(440, t0 + 0.12);
+      osc.detune.value = detune;
+      osc.connect(gain);
+      osc.start(t0);
+      osc.stop(t0 + 1.7);
+    });
+    finish(ctx, 1.7);
+  }
+
+  function playDrumroll() {
+    const ctx = audioContext();
+    if (!ctx) return;
+    const t0 = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuffer(ctx, 2.6);
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 1800;
+    filter.Q.value = 0.8;
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    // 14 hits per second via an LFO on the gain
+    const lfo = ctx.createOscillator();
+    lfo.type = 'square';
+    lfo.frequency.setValueAtTime(11, t0);
+    lfo.frequency.linearRampToValueAtTime(18, t0 + 2);
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 0.2;
+    lfo.connect(lfoGain);
+    lfoGain.connect(gain.gain);
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    src.start(t0);
+    lfo.start(t0);
+    src.stop(t0 + 2.1);
+    lfo.stop(t0 + 2.1);
+    // crash at the end
+    const crash = ctx.createBufferSource();
+    crash.buffer = noiseBuffer(ctx, 1.2);
+    const crashGain = ctx.createGain();
+    crashGain.gain.setValueAtTime(0.4, t0 + 2.1);
+    crashGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 3.2);
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 3000;
+    crash.connect(hp);
+    hp.connect(crashGain);
+    crashGain.connect(ctx.destination);
+    crash.start(t0 + 2.1);
+    finish(ctx, 3.3);
+  }
+
+  function playSadTrombone() {
+    const ctx = audioContext();
+    if (!ctx) return;
+    const t0 = ctx.currentTime;
+    const notes = [[392, 0.4], [370, 0.4], [349, 0.4], [330, 1.3]];
+    let t = t0;
+    notes.forEach(([freq, dur], i) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 1200;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.3, t + 0.05);
+      gain.gain.setValueAtTime(0.3, t + dur - 0.1);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.frequency.setValueAtTime(freq, t);
+      // the last note sags
+      if (i === notes.length - 1) osc.frequency.exponentialRampToValueAtTime(freq * 0.72, t + dur);
+      osc.connect(lp);
+      lp.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + dur);
+      t += dur;
+    });
+    finish(ctx, t - t0);
+  }
+
+  function playRimshot() {
+    const ctx = audioContext();
+    if (!ctx) return;
+    const t0 = ctx.currentTime;
+    const hit = (at) => {
+      const src = ctx.createBufferSource();
+      src.buffer = noiseBuffer(ctx, 0.08);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.5, at);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.08);
+      src.connect(gain);
+      gain.connect(ctx.destination);
+      src.start(at);
+    };
+    hit(t0);
+    hit(t0 + 0.16);
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(220, t0 + 0.34);
+    osc.frequency.exponentialRampToValueAtTime(70, t0 + 0.7);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.6, t0 + 0.34);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.75);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(t0 + 0.34);
+    osc.stop(t0 + 0.75);
+    // cymbal
+    const cym = ctx.createBufferSource();
+    cym.buffer = noiseBuffer(ctx, 0.9);
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 5000;
+    const cymGain = ctx.createGain();
+    cymGain.gain.setValueAtTime(0.3, t0 + 0.34);
+    cymGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.2);
+    cym.connect(hp);
+    hp.connect(cymGain);
+    cymGain.connect(ctx.destination);
+    cym.start(t0 + 0.34);
+    finish(ctx, 1.3);
   }
 
   // ============================================

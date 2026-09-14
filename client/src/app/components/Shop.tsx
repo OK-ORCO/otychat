@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useSocket, ShopItem } from '../../contexts/SocketContext';
 import { UI_SPRITES, BALL_SPRITES, STONE_SPRITES } from '../data/pokemon-data';
 
@@ -27,17 +28,42 @@ const ITEM_LOOK: Record<string, { icon?: string; sprite?: string; description: s
   sun_stone: { sprite: STONE_SPRITES.sun, description: 'Evolve sun-loving Pokémon', gradient: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)' },
   dragon_scale: { sprite: STONE_SPRITES.dragon, description: 'Evolve dragon-type Pokémon', gradient: 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)' },
   shiny_charm: { icon: '✨', description: 'Double shiny encounter rate, forever', gradient: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)' },
+  confetti: { icon: '🎉', description: 'Confetti all over the big screen', gradient: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)' },
+  airhorn: { icon: '📯', description: 'BWAAAAP on the projector', gradient: 'linear-gradient(135deg, #ef4444 0%, #f97316 100%)' },
+  drumroll: { icon: '🥁', description: 'Build the tension', gradient: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' },
+  sad_trombone: { icon: '🎺', description: 'Wah wah wah waaah', gradient: 'linear-gradient(135deg, #64748b 0%, #475569 100%)' },
+  rimshot: { icon: '🥁', description: 'Ba dum tss', gradient: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)' },
+  spotlight: { icon: '💡', description: 'Your name in lights for 10 seconds, with a message', gradient: 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)' },
 };
 
 const CATEGORY_FOR_TYPE: Record<ShopItem['type'], { label: string; icon: string; order: number }> = {
-  ball: { label: 'Poké Balls', icon: '⚾', order: 0 },
-  effect: { label: 'Boosts', icon: '⚡', order: 1 },
-  stone: { label: 'Evolution Stones', icon: '💎', order: 2 },
-  permanent: { label: 'Upgrades', icon: '👑', order: 3 },
+  stunt: { label: 'Big Screen', icon: '🎬', order: 0 },
+  ball: { label: 'Poké Balls', icon: '⚾', order: 1 },
+  effect: { label: 'Boosts', icon: '⚡', order: 2 },
+  stone: { label: 'Evolution Stones', icon: '💎', order: 3 },
+  permanent: { label: 'Upgrades', icon: '👑', order: 4 },
 };
 
 export default function Shop({ coins, onBack }: ShopProps) {
   const { buyItem, shopItems } = useSocket();
+  const [messageFor, setMessageFor] = useState<string | null>(null);
+  const [message, setMessage] = useState('');
+
+  const handleBuy = (item: ShopItem) => {
+    if (coins < item.price) return;
+    if (item.needsMessage) {
+      if (messageFor !== item.id) {
+        setMessageFor(item.id);
+        setMessage('');
+        return;
+      }
+      buyItem(item.id, message.trim());
+      setMessageFor(null);
+      setMessage('');
+      return;
+    }
+    buyItem(item.id);
+  };
 
   const categories = Object.entries(CATEGORY_FOR_TYPE)
     .sort((a, b) => a[1].order - b[1].order)
@@ -82,10 +108,11 @@ export default function Shop({ coins, onBack }: ShopProps) {
                 const look = ITEM_LOOK[item.id] || { icon: '🎁', description: '', gradient: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)' };
                 const canAfford = coins >= item.price;
 
+                const composing = messageFor === item.id;
                 return (
                   <div
                     key={item.id}
-                    className="p-4 rounded-2xl flex items-center gap-4"
+                    className="p-4 rounded-2xl flex items-center gap-4 flex-wrap"
                     style={{ background: 'white', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)', opacity: canAfford ? 1 : 0.6 }}
                   >
                     <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style={{ background: look.gradient }}>
@@ -99,8 +126,20 @@ export default function Shop({ coins, onBack }: ShopProps) {
                         <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>{look.description}</p>
                       )}
                     </div>
+                    {composing && (
+                      <input
+                        type="text"
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        placeholder="Message for the screen (optional)"
+                        maxLength={40}
+                        autoFocus
+                        className="w-full px-4 py-3 outline-none order-last"
+                        style={{ background: 'var(--bg-secondary)', borderRadius: '14px', border: 'none', fontFamily: 'Nunito, sans-serif', fontSize: '14px' }}
+                      />
+                    )}
                     <button
-                      onClick={() => canAfford && buyItem(item.id)}
+                      onClick={() => handleBuy(item)}
                       disabled={!canAfford}
                       className="px-4 py-3 rounded-xl flex items-center gap-2 transition-all transform hover:scale-105 active:scale-95"
                       style={{
@@ -114,8 +153,8 @@ export default function Shop({ coins, onBack }: ShopProps) {
                         boxShadow: canAfford ? '0 4px 12px rgba(16, 185, 129, 0.3)' : 'none'
                       }}
                     >
-                      <span>🪙</span>
-                      {item.price}
+                      <span>{composing ? '💡' : '🪙'}</span>
+                      {composing ? 'Fire' : item.price}
                     </button>
                   </div>
                 );

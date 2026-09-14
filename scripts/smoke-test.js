@@ -472,6 +472,33 @@ async function main() {
     assert(s.coins === p.newBalance, 'stats agree with purchase');
   });
 
+  await test('big-screen stunts cost coins, hit the display, and are rate limited', async () => {
+    const onDisplay = waitFor(display, 'stunt', s => s.kind === 'spotlight');
+    const purchase = waitFor(alice, 'shop-purchase', p => p.itemId === 'spotlight');
+    const feed = waitFor(bob, 'feed-event', f => f.type === 'stunt');
+    alice.emit('buy-item', { itemId: 'spotlight', message: 'hello room' });
+    const [s, p, f] = await Promise.all([onDisplay, purchase, feed]);
+    assert(s.username === 'alice' && s.message === 'hello room' && s.userColor, JSON.stringify(s));
+    assert(p.newBalance >= 0, 'balance');
+    assert(f.stunt === 'spotlight', 'feed event');
+
+    // second stunt inside the cooldown is refused and not charged
+    const refused = waitFor(alice, 'shop-error', e => /before your next stunt/.test(e.message));
+    alice.emit('buy-item', { itemId: 'airhorn' });
+    await refused;
+  });
+
+  await test('leaderboards carry a tonight section', async () => {
+    const boards = waitFor(alice, 'leaderboards', b => b.tonight && b.tonight.drinks.length >= 1, 5000);
+    alice.emit('log-drink');
+    const b = await boards;
+    assert(Array.isArray(b.xp) && Array.isArray(b.tonight.reactions) && Array.isArray(b.tonight.catches), 'board shape');
+    assert(b.tonight.drinks[0].username === 'alice' && b.tonight.drinks[0].count >= 1, 'alice leads drinks tonight');
+    const undone = waitFor(alice, 'drink-logged', d => d.tonight === 0);
+    alice.emit('unlog-drink');
+    await undone;
+  });
+
   await test('evolvable list is sent and a stone evolution works', async () => {
     // grant-pokemon gave Eevee plus fire/water/thunder stones; rejoin to get the list
     alice.disconnect();

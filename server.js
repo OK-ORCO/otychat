@@ -311,8 +311,19 @@ const SHOP_ITEMS = {
   dragon_scale: { price: 300, type: 'stone', stoneType: 'dragon_scale', name: 'Dragon Scale' },
 
   // Permanent upgrades
-  shiny_charm: { price: 500, type: 'permanent', name: 'Shiny Charm' }
+  shiny_charm: { price: 500, type: 'permanent', name: 'Shiny Charm' },
+
+  // Big-screen stunts: coins in, chaos on the projector
+  confetti: { price: 150, type: 'stunt', stunt: 'confetti', name: 'Confetti Cannon' },
+  airhorn: { price: 50, type: 'stunt', stunt: 'airhorn', name: 'Airhorn' },
+  drumroll: { price: 50, type: 'stunt', stunt: 'drumroll', name: 'Drumroll' },
+  sad_trombone: { price: 50, type: 'stunt', stunt: 'sad_trombone', name: 'Sad Trombone' },
+  rimshot: { price: 50, type: 'stunt', stunt: 'rimshot', name: 'Rimshot' },
+  spotlight: { price: 300, type: 'stunt', stunt: 'spotlight', name: 'Name in Lights', needsMessage: true }
 };
+
+// One stunt per person per ten seconds keeps the projector watchable
+const STUNT_COOLDOWN_MS = 10 * 1000;
 
 // ============================================
 // STATE
@@ -523,8 +534,22 @@ function broadcastUserList() {
   });
 }
 
+function leaderboardsPayload() {
+  const boards = db.getLeaderboards(10);
+  boards.tonight = currentPresentation
+    ? db.getTonightLeaderboards(currentPresentation.id, currentPresentation.started_at, 10)
+    : { reactions: [], drinks: [], catches: [], messages: [] };
+  return boards;
+}
+
+// Emoji and chat fire constantly; coalesce refreshes instead of recomputing per event.
+let leaderboardTimer = null;
 function broadcastLeaderboards() {
-  io.emit('leaderboards', db.getLeaderboards(10));
+  if (leaderboardTimer) return;
+  leaderboardTimer = setTimeout(() => {
+    leaderboardTimer = null;
+    io.emit('leaderboards', leaderboardsPayload());
+  }, 1500);
 }
 
 function emitToDisplay(event, data) {
@@ -940,7 +965,7 @@ io.on('connection', (socket) => {
     socket.emit('shop-items', SHOP_ITEMS);
 
     // Send leaderboards
-    socket.emit('leaderboards', db.getLeaderboards(10));
+    socket.emit('leaderboards', leaderboardsPayload());
 
     // Send DM history
     const dmHistory = db.getUserDMs(user.id, 200);
@@ -1087,7 +1112,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('get-leaderboards', () => {
-    socket.emit('leaderboards', db.getLeaderboards(10));
+    socket.emit('leaderboards', leaderboardsPayload());
   });
 
   // ----------------------------------------
@@ -1171,6 +1196,7 @@ io.on('connection', (socket) => {
     // Note: No separate emitToDisplay needed - io.emit already reaches display sockets
 
     checkAndEmitAchievements(socket, socket.data.userId);
+    broadcastLeaderboards();
   });
 
   // ----------------------------------------
@@ -1287,6 +1313,8 @@ io.on('connection', (socket) => {
     checkAndEmitAchievements(socket, socket.data.userId, {
       isDrawing: messageType === 'drawing'
     });
+
+    broadcastLeaderboards();
 
     // Doodles and photos both pop onto the big screen
     if (drawing && (messageType === 'drawing' || messageType === 'image')) {
@@ -1542,6 +1570,7 @@ io.on('connection', (socket) => {
     });
 
     checkAndEmitAchievements(socket, socket.data.userId);
+    broadcastLeaderboards();
   });
 
   socket.on('unlog-drink', () => {
@@ -2078,16 +2107,31 @@ io.on('connection', (socket) => {
   // SHOP - ENHANCED
   // ----------------------------------------
 
-  socket.on('buy-item', ({ itemId }) => {
+  socket.on('buy-item', ({ itemId, message } = {}) => {
     if (!socket.data.userId) return;
 
     const user = db.getUserById(socket.data.userId);
     if (!user) return;
 
     const item = SHOP_ITEMS[itemId];
-    if (!item || user.coins < item.price) {
-      socket.emit('shop-error', { message: 'Cannot purchase' });
+    if (!item) {
+      socket.emit('shop-error', { message: 'No such item' });
       return;
+    }
+    if (user.coins < item.price) {
+      socket.emit('shop-error', { message: `Not enough coins (${item.price} needed)` });
+      return;
+    }
+    if (item.type === 'stunt') {
+      const waitMs = STUNT_COOLDOWN_MS - (Date.now() - (socket.data.lastStuntAt || 0));
+      if (waitMs > 0) {
+        socket.emit('shop-error', { message: `Easy there. ${Math.ceil(waitMs / 1000)}s before your next stunt` });
+        return;
+      }
+      if (displaySockets.size === 0) {
+        socket.emit('shop-error', { message: 'No big screen is connected right now' });
+        return;
+      }
     }
 
     // Deduct coins
@@ -2117,6 +2161,26 @@ io.on('connection', (socket) => {
           db.setShinyCharm(socket.data.userId, true);
         }
         break;
+
+      case 'stunt': {
+        const text = item.needsMessage ? String(message || '').trim().slice(0, 40) : '';
+        socket.data.lastStuntAt = Date.now();
+        emitToDisplay('stunt', {
+          kind: item.stunt,
+          username: socket.data.username,
+          userColor: socket.data.nameColor || '#ec4899',
+          message: text
+        });
+        io.emit('feed-event', {
+          type: 'stunt',
+          username: socket.data.username,
+          stunt: item.stunt,
+          itemName: item.name,
+          message: text,
+          timestamp: Date.now()
+        });
+        break;
+      }
     }
 
     socket.emit('shop-purchase', {

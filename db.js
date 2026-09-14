@@ -1256,12 +1256,33 @@ module.exports = {
   dismissFromQueue,
   clearQueue,
   clearChatMessages,
-  getNightAwards
+  getNightAwards,
+  getTonightLeaderboards
 };
 
 // ============================================
 // LEADERBOARD FUNCTIONS
 // ============================================
+
+/**
+ * Session-scoped boards for the Feed tab's "Tonight" view.
+ */
+function getTonightLeaderboards(presentationId, startedAt, limit = 10) {
+  const since = String(startedAt || '').replace('T', ' ').replace('Z', '');
+  return {
+    reactions: queryAll(`SELECT u.username, us.reactions AS count FROM user_stats us
+      JOIN users u ON u.id = us.user_id WHERE us.presentation_id = ? AND us.reactions > 0
+      ORDER BY us.reactions DESC LIMIT ?`, [presentationId, limit]),
+    drinks: queryAll(`SELECT u.username, us.drinks AS count FROM user_stats us
+      JOIN users u ON u.id = us.user_id WHERE us.presentation_id = ? AND us.drinks > 0
+      ORDER BY us.drinks DESC LIMIT ?`, [presentationId, limit]),
+    catches: queryAll(`SELECT u.username, COUNT(*) AS count FROM pokemon_caught pc
+      JOIN users u ON u.id = pc.user_id WHERE pc.caught_at >= ?
+      GROUP BY pc.user_id ORDER BY count DESC LIMIT ?`, [since, limit]),
+    messages: queryAll(`SELECT u.username, COUNT(*) AS count FROM chat_messages cm
+      JOIN users u ON u.id = cm.user_id GROUP BY cm.user_id ORDER BY count DESC LIMIT ?`, [limit])
+  };
+}
 
 function getLeaderboards(limit = 10) {
   // XP Leaderboard

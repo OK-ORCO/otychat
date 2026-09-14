@@ -22,6 +22,15 @@ const LEADERBOARD_TYPES = [
   { key: 'drinks', label: 'Most Drinks', icon: '🍺', color: '#f97316' },
 ] as const;
 
+const TONIGHT_TYPES = [
+  { key: 'reactions', label: 'Hype Tonight', icon: '🔥', color: '#ef4444' },
+  { key: 'catches', label: 'Catches Tonight', icon: '⚾', color: '#10b981' },
+  { key: 'messages', label: 'Chatterboxes', icon: '💬', color: '#3b82f6' },
+  { key: 'drinks', label: 'Drinks Tonight', icon: '🍺', color: '#f97316' },
+] as const;
+
+type BoardMode = 'tonight' | 'all';
+
 function SpriteIcon({ src, size = 20 }: { src: string; size?: number }) {
   return <img src={src} alt="" style={{ width: size, height: size, imageRendering: 'pixelated' }} />;
 }
@@ -29,17 +38,21 @@ function SpriteIcon({ src, size = 20 }: { src: string; size?: number }) {
 export default function FeedTab() {
   const { feed, user, leaderboards, onlineUsers } = useSocket();
   const [activeLeaderboard, setActiveLeaderboard] = useState(0);
+  const [mode, setMode] = useState<BoardMode>('tonight');
+  const types = mode === 'tonight' ? TONIGHT_TYPES : LEADERBOARD_TYPES;
 
   // Auto-cycle through leaderboards every 5 seconds
   useEffect(() => {
     const interval = setInterval(() => {
-      setActiveLeaderboard(prev => (prev + 1) % LEADERBOARD_TYPES.length);
+      setActiveLeaderboard(prev => (prev + 1) % types.length);
     }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [types.length]);
 
-  const currentLeaderboardType = LEADERBOARD_TYPES[activeLeaderboard];
-  const currentLeaderboard = leaderboards[currentLeaderboardType.key as keyof typeof leaderboards] || [];
+  const currentLeaderboardType = types[Math.min(activeLeaderboard, types.length - 1)];
+  const currentLeaderboard = (mode === 'tonight'
+    ? leaderboards.tonight?.[currentLeaderboardType.key as keyof NonNullable<typeof leaderboards.tonight>]
+    : leaderboards[currentLeaderboardType.key as keyof typeof leaderboards]) as { username: string; level?: number; count?: number }[] | undefined || [];
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -155,18 +168,32 @@ export default function FeedTab() {
                 }}>
                   {currentLeaderboardType.label}
                 </h3>
-                <p style={{
-                  fontSize: '11px',
-                  color: 'var(--text-muted)'
-                }}>
-                  Top trainers
-                </p>
+                <div className="flex gap-1 mt-1">
+                  {(['tonight', 'all'] as BoardMode[]).map(m => (
+                    <button
+                      key={m}
+                      onClick={() => { setMode(m); setActiveLeaderboard(0); }}
+                      className="px-2 py-0.5 rounded-full"
+                      style={{
+                        background: mode === m ? 'var(--text)' : 'rgba(0,0,0,0.06)',
+                        color: mode === m ? 'white' : 'var(--text-muted)',
+                        border: 'none',
+                        fontFamily: 'Fredoka, sans-serif',
+                        fontSize: '10px',
+                        fontWeight: '700',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {m === 'tonight' ? 'Tonight' : 'All time'}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Leaderboard tabs */}
             <div className="flex gap-1">
-              {LEADERBOARD_TYPES.map((type, idx) => (
+              {types.map((type, idx) => (
                 <button
                   key={type.key}
                   onClick={() => setActiveLeaderboard(idx)}
@@ -191,7 +218,7 @@ export default function FeedTab() {
             {currentLeaderboard.length === 0 ? (
               <div className="text-center py-6">
                 <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-                  No data yet
+                  {mode === 'tonight' ? 'Nothing yet tonight' : 'No data yet'}
                 </p>
               </div>
             ) : (

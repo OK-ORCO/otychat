@@ -797,3 +797,88 @@
 .otychat-awards-row-title { color: #6b7280 !important; font-weight: 600 !important; min-width: 220px !important; }
 .otychat-awards-row-name { font-weight: 700 !important; color: #8b5cf6 !important; }
 .otychat-awards-thanks { margin-top: 16px !important; font-size: 20px !important; color: #6b7280 !important; }
+
+/* ============================================
+   STUNTS
+   ============================================ */
+
+.otychat-confetti {
+  position: absolute !important;
+  top: -20px !important;
+  border-radius: 2px !important;
+  pointer-events: none !important;
+  opacity: 0.95 !important;
+  animation-name: otychat-confetti-fall !important;
+  animation-timing-function: linear !important;
+  animation-fill-mode: forwards !important;
+  z-index: 999995 !important;
+}
+
+@keyframes otychat-confetti-fall {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate(var(--drift, 0px), 110vh) rotate(var(--spin, 720deg)); opacity: 0.6; }
+}
+
+.otychat-spotlight {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  min-width: 560px !important;
+  max-width: 900px !important;
+  padding: 44px 64px 40px !important;
+  background: #111827 !important;
+  border-radius: 28px !important;
+  border: 10px solid #fbbf24 !important;
+  box-shadow: 0 0 60px var(--glow, #ec4899), 0 24px 64px rgba(0, 0, 0, 0.5) !important;
+  text-align: center !important;
+  font-family: 'Fredoka', 'Nunito', system-ui, sans-serif !important;
+  color: #fff !important;
+  pointer-events: none !important;
+  z-index: 999998 !important;
+  animation: otychat-toast-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), otychat-fade-out 0.6s ease-in 9.3s forwards !important;
+}
+
+.otychat-spotlight-bulbs {
+  position: absolute !important;
+  inset: -22px !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: space-between !important;
+  align-content: space-between !important;
+  pointer-events: none !important;
+}
+
+.otychat-bulb {
+  width: 14px !important;
+  height: 14px !important;
+  border-radius: 50% !important;
+  background: #fde68a !important;
+  box-shadow: 0 0 12px #fbbf24 !important;
+  animation: otychat-bulb-blink 0.8s steps(2) infinite !important;
+}
+.otychat-bulb:nth-child(odd) { animation-delay: 0.4s !important; }
+
+@keyframes otychat-bulb-blink {
+  from { opacity: 1; }
+  to { opacity: 0.25; }
+}
+
+.otychat-spotlight-label {
+  font-size: 18px !important;
+  letter-spacing: 4px !important;
+  text-transform: uppercase !important;
+  color: #fbbf24 !important;
+  font-weight: 600 !important;
+}
+.otychat-spotlight-name {
+  font-size: 84px !important;
+  font-weight: 700 !important;
+  line-height: 1.05 !important;
+  text-shadow: 0 0 24px var(--glow, #ec4899) !important;
+}
+.otychat-spotlight-message {
+  font-size: 28px !important;
+  margin-top: 10px !important;
+  color: #e5e7eb !important;
+}

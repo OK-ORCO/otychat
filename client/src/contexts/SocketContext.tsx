@@ -73,11 +73,13 @@ export interface ShopItem {
   id: string;
   name: string;
   price: number;
-  type: 'ball' | 'stone' | 'effect' | 'permanent';
+  type: 'ball' | 'stone' | 'effect' | 'permanent' | 'stunt';
   ballType?: string;
   stoneType?: string;
   effectType?: string;
   quantity?: number;
+  stunt?: string;
+  needsMessage?: boolean;
 }
 
 interface Zone {
@@ -144,11 +146,17 @@ interface LeaderboardEntry {
   count?: number;
 }
 
-interface Leaderboards {
+export interface Leaderboards {
   xp: LeaderboardEntry[];
   pokemon: LeaderboardEntry[];
   shiny: LeaderboardEntry[];
   drinks: LeaderboardEntry[];
+  tonight?: {
+    reactions: LeaderboardEntry[];
+    drinks: LeaderboardEntry[];
+    catches: LeaderboardEntry[];
+    messages: LeaderboardEntry[];
+  };
 }
 
 interface JoinError {
@@ -320,7 +328,7 @@ interface SocketContextType {
   // Other actions
   logDrink: () => void;
   unlogDrink: () => void;
-  buyItem: (itemId: string) => void;
+  buyItem: (itemId: string, message?: string) => void;
   evolvePokemon: (pokemonId: number, method: 'level' | 'stone', stone?: string) => void;
   sendDM: (toUsername: string, content: string, drawing?: string, image?: string) => void;
   markDMsRead: (fromUsername: string) => void;
@@ -594,8 +602,17 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       isShiny?: boolean;
       toName?: string;
       message?: string;
+      stunt?: string;
+      itemName?: string;
     }) => {
       const me = usernameRef.current;
+      if (ev.type === 'stunt' && ev.username) {
+        const verb = ev.stunt === 'confetti' ? 'fired the confetti cannon'
+          : ev.stunt === 'spotlight' ? `put their name in lights${ev.message ? `: "${ev.message}"` : ''}`
+          : `played the ${(ev.itemName || ev.stunt || 'sound').toLowerCase()}`;
+        addFeedItem({ type: 'kudos', message: `${ev.username === me ? 'You' : ev.username} ${verb}`, icon: ev.stunt === 'confetti' ? '🎉' : ev.stunt === 'spotlight' ? '💡' : '📯', username: ev.username });
+        return;
+      }
       if (ev.type === 'level-up' && ev.username && ev.username !== me) {
         addFeedItem({ type: 'level-up', message: `${ev.username} reached Level ${ev.level}`, icon: '🎉', username: ev.username });
       } else if (ev.type === 'achievement' && ev.username && ev.username !== me) {
@@ -1254,8 +1271,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socket?.emit('unlog-drink');
   }, [socket]);
 
-  const buyItem = useCallback((itemId: string) => {
-    socket?.emit('buy-item', { itemId });
+  const buyItem = useCallback((itemId: string, message?: string) => {
+    socket?.emit('buy-item', { itemId, message });
   }, [socket]);
 
   const evolvePokemon = useCallback((pokemonId: number, method: 'level' | 'stone', stone?: string) => {

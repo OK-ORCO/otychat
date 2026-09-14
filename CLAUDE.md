@@ -301,7 +301,7 @@ The names below are the ones actually emitted. `npm test` exercises most of them
 | `get-user-profile` | `{ username }` |
 | `catch-pokemon` / `run-from-pokemon` | `{ odId, ballType }` / `{}` |
 | `change-zone` | `{ zone }` |
-| `buy-item` | `{ itemId }` |
+| `buy-item` | `{ itemId, message? }`; `stunt` items (confetti, airhorn, drumroll, sad_trombone, rimshot, spotlight) fire on the overlay, 10s cooldown per person, refused when no display is connected |
 | `log-drink` / `unlog-drink` | `{}` |
 | `send-dm` / `mark-dms-read` | `{ toUsername, content, drawing? }` / `{ fromUsername }` |
 | `send-kudos` | `{ toUsername, message }` |
@@ -325,6 +325,7 @@ The names below are the ones actually emitted. `npm test` exercises most of them
 | `shop-purchase` / `shop-error` | Purchase outcome |
 | `achievement-unlocked` / `feed-event` / `drink-logged-broadcast` | Activity for the feed |
 | `user-profile` | Response to `get-user-profile` |
+| `leaderboards` | All-time boards plus `tonight` (reactions, drinks, catches, messages for this session); broadcasts coalesce to one per 1.5s |
 | `dm-received` / `dm-history` / `unread-dm-count` | DMs |
 | `kudos-received` / `kudos-sent` / `kudos-error` | Kudos |
 | `popcorn-emergency-invite` | `{ emergencyId, hostUsername, invitees, expiresAt }` |
@@ -342,6 +343,7 @@ The names below are the ones actually emitted. `npm test` exercises most of them
 | `display-welcome` | `{ joinUrl, qrSvg, onlineCount }` on connect; the overlay shows a join card for 90s (popup button toggles it). Set `PUBLIC_URL` if the proxy hides the real host |
 | `poll-state` / `awards-ceremony` / `awards-end` | Poll card top-left; awards play one card every 6s then a summary |
 | `drawing-blast` | `{ username, text, drawing, type }` doodles and photos |
+| `stunt` | `{ kind, username, userColor, message }` confetti, synthesised soundboard, or the name-in-lights banner |
 | `show-question` / `hide-question` | `{ id, username, text, drawing, votes }` / `{}` |
 | `popcorn-emergency-start` | `{ hostUsername, invitees: [{ username }] }` (only when sent to everyone) |
 | `popcorn-emergency-response` | `{ username, status }` |

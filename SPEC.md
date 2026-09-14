@@ -119,7 +119,7 @@ Simple username entry with animated background. Credentials cached in localStora
 
 **Features:**
 - Quick stats bar: Level, Coins, Online count
-- Cycling leaderboards: XP Leaders, Top Catchers, Shiny Hunters, Most Active
+- Cycling leaderboards with a Tonight / All time toggle: tonight = reactions, catches, messages, drinks for this session; all time = XP, catches, shinies, drinks
 - Live activity feed (last 10 events)
 
 ### 3. React Tab
@@ -222,7 +222,7 @@ The overlay also shows a **join card** (QR + URL + headcount) for 90 seconds whe
 - Trainer level with XP bar
 - Stats: Pokémon caught, shinies, reactions, drinks
 - Inventory: balls, evolution stones
-- Shop for items
+- Shop for items, including Big Screen stunts (confetti cannon, airhorn, drumroll, sad trombone, rimshot, name in lights) that fire on the projector
 - Background theme selector
 - Logout button
 
@@ -667,8 +667,6 @@ otychat-extension/
 
 ## Post-V1 Ideas
 
-- Coin sinks that hit the projector (confetti cannon, soundboard, name in lights)
-- Tonight vs all-time leaderboards
 - Admin panel for moderating questions
 - Pokémon trading between users
 - Custom emoji upload
