@@ -9,6 +9,7 @@ const { createServer } = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const QRCode = require('qrcode');
 
@@ -104,8 +105,8 @@ app.get('/api/admin/assets', (req, res) => {
 app.get('/api/test/password-shape', (req, res) => {
   const user = db.getUserByUsername(String(req.query.username || ''));
   if (!user) return res.status(404).json({ error: 'no such user' });
-  const stored = String(user.password || '');
-  res.json({ hashed: stored.startsWith('scrypt$'), startsWith: stored.slice(0, 7), length: stored.length });
+  // Admin-gated by the /api/test middleware above; still, never echo stored bytes
+  res.json({ hashed: String(user.password || '').startsWith('scrypt$') });
 });
 
 // Grant test Pokemon and items to a user
@@ -387,8 +388,8 @@ function emitToUser(username, event, payload) {
 const TEMP_WORDS = ['sunny', 'fuzzy', 'sleepy', 'zesty', 'lucky', 'jolly', 'mighty', 'sparkly',
   'otter', 'panda', 'mango', 'taco', 'pickle', 'waffle', 'comet', 'dino'];
 function generateTempPassword() {
-  const pick = () => TEMP_WORDS[Math.floor(Math.random() * TEMP_WORDS.length)];
-  return `${pick()}-${pick()}-${Math.floor(10 + Math.random() * 90)}`;
+  const pick = () => TEMP_WORDS[crypto.randomInt(TEMP_WORDS.length)];
+  return `${pick()}-${pick()}-${crypto.randomInt(100, 1000)}`;
 }
 
 // Emoji spam guard: a small bucket per socket, refilled steadily. Excess taps
