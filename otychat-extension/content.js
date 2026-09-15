@@ -72,7 +72,7 @@
       <div class="otychat-popcorn-emergency" id="otychat-popcorn-emergency">
         <div class="emergency-bars top"></div>
         <div class="emergency-content">
-          <div class="popcorn-icon">🍿</div>
+          <div class="popcorn-icon"></div>
           <h1>POPCORN EMERGENCY</h1>
           <div class="host-name" id="popcorn-host"></div>
           <div class="responders" id="popcorn-responders"></div>
@@ -124,7 +124,7 @@
 
       socket.on('connect', () => {
         socket.emit('join-display');
-        console.log('✅ OtyChat overlay connected');
+        console.log('[OtyChat] overlay connected');
       });
 
       socket.on('display-welcome', (data) => showJoinCard(data));
@@ -134,7 +134,7 @@
       socket.on('awards-end', () => stopAwards());
 
       socket.on('disconnect', () => {
-        console.log('❌ OtyChat overlay disconnected');
+        console.log('[OtyChat] overlay disconnected');
       });
 
       // Emoji reactions - can be URL path like "/emojis/123.png" or unicode emoji like "😀"
@@ -167,10 +167,10 @@
       socket.on('pokemon-caught', (data) => showPokemonCaught(data));
       socket.on('level-up', (data) => showLevelUp(data));
       socket.on('kudos', (data) => showKudos(data));
-      socket.on('achievement-unlocked', (data) => showToast('🏆', 'Achievement unlocked', `${data.username}: ${data.achievement}`, data.icon));
-      socket.on('drink-logged', (data) => showToast('🍺', 'Cheers!', `${data.username} logged drink #${data.count}`));
+      socket.on('achievement-unlocked', (data) => showToast('trophy', 'Achievement unlocked', `${data.username}: ${data.achievement}`, data.icon));
+      socket.on('drink-logged', (data) => showToast('drink', 'Cheers', `${data.username} logged drink #${data.count}`));
       socket.on('drawing-blast', (data) => showDrawingBlast(data));
-      socket.on('pokemon-spawn-wave', () => showToast('🌿', 'Wild Pokémon appeared!', 'Check your phones'));
+      socket.on('pokemon-spawn-wave', () => showToast('pokeball', 'Wild Pokémon', 'Check your phones'));
       socket.on('stunt', (data) => runStunt(data));
 
       // Popcorn Emergency
@@ -331,7 +331,7 @@
 
     shownQuestionId = String(question.id);
     author.textContent = question.username || '';
-    votes.textContent = `👍 ${question.votes || 0}`;
+    votes.textContent = `${question.votes || 0} vote${(question.votes || 0) === 1 ? '' : 's'}`;
 
     content.innerHTML = '';
     if (question.text) {
@@ -361,7 +361,7 @@
   function updateQuestionVotes(data) {
     if (shownQuestionId === null || String(data.messageId) !== shownQuestionId) return;
     const votes = document.getElementById('otychat-question-votes');
-    if (votes) votes.textContent = `👍 ${data.votes}`;
+    if (votes) votes.textContent = `${data.votes} vote${data.votes === 1 ? '' : 's'}`;
   }
 
   // ============================================
@@ -369,6 +369,33 @@
   // ============================================
 
   const SPRITE_BASE = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon';
+
+  const ICON_PATHS = {
+    trophy: 'M5 3 h8 v5 c0 2 -2 4 -4 4 c-2 0 -4 -2 -4 -4 z M5 4 H2 v2 c0 2 3 3 3 3 M13 4 h3 v2 c0 2 -3 3 -3 3 M9 12 v3 M6 15 h6',
+    drink: 'M5 3 h8 l-1 12 H6 z M5 7 h8',
+    pokeball: 'M9 2 a7 7 0 1 1 0 14 a7 7 0 1 1 0 -14 M2 9 h14 M9 7 a2 2 0 0 1 0 4 a2 2 0 0 1 0 -4',
+    sparkle: 'M9 2 v14 M2 9 h14 M5 5 l8 8 M13 5 l-8 8',
+    megaphone: 'M3 7 h3 l7 -4 v12 l-7 -4 H3 z M6 11 v4 h2 v-3',
+    dice: 'M3 3 h12 v12 H3 z M6 6 h1 M11 6 h1 M6 12 h1 M11 12 h1 M8.5 9 h1',
+    moon: 'M12 3 a6 6 0 1 0 3 10 a5 5 0 0 1 -3 -10 z',
+    heart: 'M9 15 L3 9 a3 3 0 0 1 6 -3 a3 3 0 0 1 6 3 z',
+    star: 'M9 2 l2 5 l5 0 l-4 3 l2 5 l-5 -3 l-5 3 l2 -5 l-4 -3 l5 0 z',
+    popcorn: 'M4 6 h10 l-1 10 H5 z M4 6 c0 -3 3 -3 3 -1 c0 -2 4 -2 4 0 c0 -2 3 -2 3 1 M7 6 v10 M11 6 v10',
+    level: 'M3 15 h12 M4 15 v-4 h3 v4 M8 15 v-8 h3 v8 M12 15 v-11 h3 v11'
+  };
+
+  function svgIcon(name) {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 18 18');
+    svg.setAttribute('class', 'otychat-icon');
+    svg.setAttribute('stroke-linecap', 'square');
+    svg.setAttribute('shape-rendering', 'crispEdges');
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', ICON_PATHS[name] || ICON_PATHS.star);
+    svg.appendChild(path);
+    return svg;
+  }
 
   function el(tag, className, text) {
     const node = document.createElement(tag);
@@ -394,7 +421,10 @@
 
   function showToast(icon, title, message, iconOverride) {
     const toast = el('div', 'otychat-toast');
-    toast.appendChild(el('div', 'otychat-toast-icon', iconOverride || icon));
+    const iconEl = el('div', 'otychat-toast-icon');
+    const chosen = iconOverride || icon;
+    if (ICON_PATHS[chosen]) iconEl.appendChild(svgIcon(chosen)); else iconEl.textContent = chosen;
+    toast.appendChild(iconEl);
     const info = el('div', 'otychat-toast-info');
     info.appendChild(el('div', 'otychat-toast-title', title));
     info.appendChild(el('div', 'otychat-toast-message', message));
@@ -413,14 +443,14 @@
     img.alt = '';
     card.appendChild(img);
     card.appendChild(el('div', 'otychat-catch-who', `${data.username} caught`));
-    card.appendChild(el('div', 'otychat-catch-name', `${data.pokemonName}${data.isShiny ? ' ✨' : ''}`));
-    if (data.isShiny) card.appendChild(el('div', 'otychat-catch-shiny', '✨ SHINY ✨'));
+    card.appendChild(el('div', 'otychat-catch-name', data.pokemonName));
+    if (data.isShiny) card.appendChild(el('div', 'otychat-catch-shiny', 'SHINY'));
     mount(card, 4000);
   }
 
   function showLevelUp(data) {
     const card = el('div', 'otychat-levelup');
-    card.appendChild(el('div', 'otychat-levelup-stars', '⭐✨⭐'));
+    const stars = el('div', 'otychat-levelup-stars'); [0, 1, 2].forEach(() => stars.appendChild(svgIcon('star'))); card.appendChild(stars);
     card.appendChild(el('div', 'otychat-levelup-title', 'LEVEL UP'));
     card.appendChild(el('div', 'otychat-levelup-who', data.username));
     card.appendChild(el('div', 'otychat-levelup-level', `Level ${data.level}`));
@@ -429,7 +459,7 @@
 
   function showKudos(data) {
     const card = el('div', 'otychat-kudos');
-    card.appendChild(el('div', 'otychat-kudos-heart', '💖'));
+    const heart = el('div', 'otychat-kudos-heart'); heart.appendChild(svgIcon('heart')); card.appendChild(heart);
     const line = el('div', 'otychat-kudos-line');
     line.appendChild(el('span', 'otychat-kudos-from', data.fromUsername));
     line.appendChild(el('span', '', ' sent kudos to '));
@@ -463,23 +493,23 @@
     switch (data.kind) {
       case 'confetti':
         fireConfetti();
-        showToast('🎉', 'Confetti cannon', `${who} fired it`);
+        showToast('sparkle', 'Confetti cannon', `${who} fired it`);
         break;
       case 'airhorn':
         playAirhorn();
-        showToast('📯', 'Airhorn', who);
+        showToast('megaphone', 'Airhorn', who);
         break;
       case 'drumroll':
         playDrumroll();
-        showToast('🥁', 'Drumroll', who);
+        showToast('dice', 'Drumroll', who);
         break;
       case 'sad_trombone':
         playSadTrombone();
-        showToast('🎺', 'Sad trombone', who);
+        showToast('moon', 'Sad trombone', who);
         break;
       case 'rimshot':
         playRimshot();
-        showToast('🥁', 'Ba dum tss', who);
+        showToast('dice', 'Ba dum tss', who);
         break;
       case 'spotlight':
         showSpotlight(data);
@@ -808,7 +838,7 @@
       row.appendChild(el('span', 'otychat-awards-row-name', a.username));
       card.appendChild(row);
     });
-    card.appendChild(el('div', 'otychat-awards-thanks', 'Thanks for coming 🎉'));
+    card.appendChild(el('div', 'otychat-awards-thanks', 'Thanks for coming'));
     return card;
   }
 
@@ -873,7 +903,9 @@
     const hostEl = document.getElementById('popcorn-host');
     const respondersEl = document.getElementById('popcorn-responders');
 
-    hostEl.textContent = `${data.hostUsername} needs you!`;
+    hostEl.textContent = `${data.hostUsername} needs you`;
+    const hero = container.querySelector('.popcorn-icon');
+    if (hero && !hero.firstChild) hero.appendChild(svgIcon('popcorn'));
     respondersEl.innerHTML = '';
     popcornResponders = {};
 
@@ -896,7 +928,7 @@
     const el = document.querySelector(`[data-responder="${username}"]`);
     if (el) {
       el.className = `responder ${status}`;
-      el.querySelector('.status-icon').textContent = status === 'accepted' ? '✅' : '❌';
+      el.querySelector('.status-icon').textContent = status === 'accepted' ? 'OK' : 'NO';
 
       // Accepted users get a pop-in animation
       if (status === 'accepted') {
@@ -911,7 +943,7 @@
     el.className = `responder ${status}`;
     el.dataset.responder = username;
     el.innerHTML = `
-      <span class="status-icon">${status === 'pending' ? '⏳' : status === 'accepted' ? '✅' : '❌'}</span>
+      <span class="status-icon">${status === 'pending' ? '..' : status === 'accepted' ? 'OK' : 'NO'}</span>
       <span class="name">${escapeHtml(username)}</span>
     `;
     respondersEl.appendChild(el);
@@ -930,7 +962,7 @@
     popcornKernelInterval = setInterval(() => {
       const kernel = document.createElement('div');
       kernel.className = 'kernel';
-      kernel.textContent = '🍿';
+      kernel.textContent = '';
       kernel.style.left = `${Math.random() * 100}%`;
       kernel.style.animationDuration = `${1 + Math.random() * 2}s`;
       kernelsContainer.appendChild(kernel);
@@ -972,7 +1004,7 @@
     if (message.action === 'test') {
       // Test all animation patterns
       ANIMATION_PATTERNS.forEach((pattern, i) => {
-        setTimeout(() => spawnEmoji('🎉', null), i * 300);
+        setTimeout(() => spawnEmoji('🎉', null), i * 300); // test button: emoji is the content here
       });
     }
   });

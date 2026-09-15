@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { Bar, Key, Icon } from './ds';
 
 interface TrainerSpritesProps {
   onBack: () => void;
   onSelect: (sprite: string) => void;
+  current?: string;
 }
 
 // Pokemon Showdown trainer sprite base URL
@@ -152,7 +154,7 @@ const TRAINER_CATEGORIES = {
 
 type Category = keyof typeof TRAINER_CATEGORIES;
 
-export default function TrainerSprites({ onBack, onSelect }: TrainerSpritesProps) {
+export default function TrainerSprites({ onBack, onSelect, current }: TrainerSpritesProps) {
   const [selectedCategory, setSelectedCategory] = useState<Category>('Protagonists');
   const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
@@ -165,135 +167,79 @@ export default function TrainerSprites({ onBack, onSelect }: TrainerSpritesProps
     setFailedImages(prev => new Set(prev).add(name));
   };
 
+  const src = (spriteName: string) => `${SPRITE_BASE}/${spriteName}.png`;
+
   const handleSelect = (spriteName: string) => {
     // Return the full URL so it can be used as profile pic
-    onSelect(`${SPRITE_BASE}/${spriteName}.png`);
+    onSelect(src(spriteName));
   };
 
   const categories = Object.keys(TRAINER_CATEGORIES) as Category[];
   const trainers = TRAINER_CATEGORIES[selectedCategory];
 
   return (
-    <div className="min-h-screen pb-20" style={{ background: 'var(--bg-primary)' }}>
-      {/* Header */}
-      <div className="p-4 flex items-center gap-3" style={{
-        background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-        boxShadow: '0 4px 16px rgba(245, 158, 11, 0.3)'
-      }}>
-        <button
-          onClick={onBack}
-          className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl transition-all transform hover:scale-110"
-          style={{
-            background: 'rgba(255, 255, 255, 0.2)',
-            color: 'white',
-            border: 'none'
-          }}
-        >
-          ←
-        </button>
-        <h2 style={{
-          fontFamily: 'Fredoka, sans-serif',
-          fontSize: '18px',
-          color: 'white',
-          fontWeight: '700',
-          flex: 1
-        }}>
-          🎮 Trainer Sprites
-        </h2>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Bar
+        left={<button onClick={onBack} title="Back"><Icon name="back" size={16} /></button>}
+        title="Trainer sprites"
+      />
+
+      <div className="ds-scroll" style={{ flex: 'none', display: 'flex', gap: 6, padding: '6px 8px', overflowX: 'auto', background: 'var(--ds-panel)', borderBottom: '1px solid var(--ds-line)' }}>
+        {categories.map((category) => (
+          <Key
+            key={category}
+            on={selectedCategory === category}
+            onClick={() => setSelectedCategory(category)}
+            style={{ flex: 'none', minHeight: 28, fontSize: 12, whiteSpace: 'nowrap' }}
+          >
+            {category}
+          </Key>
+        ))}
       </div>
 
-      {/* Category Tabs */}
-      <div className="p-3 overflow-x-auto" style={{
-        background: 'rgba(255, 255, 255, 0.95)',
-        borderBottom: '1px solid rgba(0,0,0,0.05)'
-      }}>
-        <div className="flex gap-2" style={{ minWidth: 'max-content' }}>
-          {categories.map((category) => (
-            <button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              className="px-4 py-2 rounded-full transition-all whitespace-nowrap"
-              style={{
-                background: selectedCategory === category
-                  ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
-                  : 'var(--bg-secondary)',
-                color: selectedCategory === category ? 'white' : 'var(--text)',
-                fontFamily: 'Fredoka, sans-serif',
-                fontSize: '12px',
-                fontWeight: '600',
-                border: 'none',
-                boxShadow: selectedCategory === category
-                  ? '0 4px 12px rgba(245, 158, 11, 0.3)'
-                  : 'none'
-              }}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
-      </div>
+      <div className="ds-lcd ds-scroll" style={{ flex: 1, minHeight: 0, padding: 10 }}>
+        <div className="ds-small ds-muted" style={{ textAlign: 'center', marginBottom: 8 }}>Tap a trainer to use it as your picture.</div>
 
-      {/* Sprite Grid */}
-      <div className="p-4">
-        <p className="mb-4" style={{
-          fontSize: '13px',
-          color: 'var(--text-muted)',
-          textAlign: 'center'
-        }}>
-          Tap a trainer to use as your avatar
-        </p>
-
-        <div className="grid grid-cols-4 gap-3">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
           {trainers.map((trainer) => {
             const hasLoaded = loadedImages.has(trainer.name);
             const hasFailed = failedImages.has(trainer.name);
+            const selected = current === src(trainer.name);
 
             return (
               <button
                 key={trainer.name}
                 onClick={() => !hasFailed && handleSelect(trainer.name)}
-                className="aspect-square p-2 rounded-2xl transition-all transform hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-1"
-                style={{
-                  background: 'rgba(255, 255, 255, 0.95)',
-                  backdropFilter: 'blur(10px)',
-                  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
-                  border: 'none',
-                  opacity: hasFailed ? 0.4 : 1
-                }}
                 disabled={hasFailed}
+                title={trainer.label}
+                style={{
+                  aspectRatio: '1',
+                  width: '100%',
+                  padding: 4,
+                  border: '1px solid var(--ds-line)',
+                  outline: selected ? '2px solid var(--ds-ink)' : undefined,
+                  outlineOffset: selected ? 1 : undefined,
+                  background: 'var(--ds-paper)',
+                  opacity: hasFailed ? 0.4 : 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 2,
+                  overflow: 'hidden'
+                }}
               >
-                <div className="w-14 h-14 flex items-center justify-center relative">
-                  {!hasLoaded && !hasFailed && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-8 h-8 rounded-full animate-pulse" style={{
-                        background: 'var(--bg-secondary)'
-                      }} />
-                    </div>
-                  )}
+                <div style={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <img
-                    src={`${SPRITE_BASE}/${trainer.name}.png`}
+                    className="px"
+                    src={src(trainer.name)}
                     alt={trainer.label}
-                    className="max-w-full max-h-full object-contain"
-                    style={{
-                      imageRendering: 'pixelated',
-                      opacity: hasLoaded ? 1 : 0,
-                      transition: 'opacity 0.2s'
-                    }}
+                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', opacity: hasLoaded ? 1 : 0 }}
                     onLoad={() => handleImageLoad(trainer.name)}
                     onError={() => handleImageError(trainer.name)}
                   />
                 </div>
-                <span style={{
-                  fontFamily: 'Fredoka, sans-serif',
-                  fontSize: '9px',
-                  color: 'var(--text-muted)',
-                  textAlign: 'center',
-                  lineHeight: '1.2',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  width: '100%'
-                }}>
+                <span className="ds-muted" style={{ fontSize: 10, lineHeight: 1.1, width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {trainer.label}
                 </span>
               </button>
@@ -301,14 +247,9 @@ export default function TrainerSprites({ onBack, onSelect }: TrainerSpritesProps
           })}
         </div>
 
-        {/* Attribution */}
-        <p className="mt-6 text-center" style={{
-          fontSize: '10px',
-          color: 'var(--text-muted)',
-          opacity: 0.6
-        }}>
+        <div className="ds-small ds-faint" style={{ textAlign: 'center', marginTop: 12 }}>
           Sprites from Pokémon Showdown
-        </p>
+        </div>
       </div>
     </div>
   );

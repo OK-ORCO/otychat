@@ -1,14 +1,12 @@
 import { useSocket } from '../../contexts/SocketContext';
+import { Icon } from './ds';
 
-const KIND_STYLES: Record<string, string> = {
-  info: 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)',
-  success: 'linear-gradient(135deg, #10b981 0%, #06b6d4 100%)',
-  error: 'linear-gradient(135deg, #ef4444 0%, #f97316 100%)',
-};
+const KIND_ICON: Record<string, string> = { info: 'info', success: 'check', error: 'x' };
+const KIND_COLOR: Record<string, string> = { info: 'var(--ds-blue)', success: 'var(--ds-green)', error: 'var(--ds-red)' };
 
 /**
- * One-line transient message from the server (shop result, catch outcome,
- * zone change, kudos). Tap to dismiss; it also clears itself.
+ * One-line transient message from the server. Slides down under the header
+ * bar as an outlined strip with a coloured edge; tap to dismiss.
  */
 export default function NoticeToast() {
   const { notice, dismissNotice } = useSocket();
@@ -18,26 +16,19 @@ export default function NoticeToast() {
     <button
       key={notice.id}
       onClick={dismissNotice}
-      className="fixed left-4 right-4 z-40 px-4 py-3 rounded-2xl text-left"
+      className="ds-window"
       style={{
-        top: 'calc(env(safe-area-inset-top, 0px) + 12px)',
-        background: KIND_STYLES[notice.kind] || KIND_STYLES.info,
-        color: 'white',
-        border: 'none',
-        fontFamily: 'Fredoka, sans-serif',
-        fontSize: '14px',
-        fontWeight: '600',
-        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2)',
-        animation: 'notice-in 0.25s ease-out'
+        position: 'fixed', left: 8, right: 8, zIndex: 40,
+        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 64px)',
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '8px 10px', textAlign: 'left', fontSize: 13,
+        borderLeft: `6px solid ${KIND_COLOR[notice.kind] || KIND_COLOR.info}`,
+        animation: 'ds-notice-in 0.15s steps(3)'
       }}
     >
-      {notice.text}
-      <style>{`
-        @keyframes notice-in {
-          from { opacity: 0; transform: translateY(-12px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
+      <Icon name={KIND_ICON[notice.kind] || 'info'} size={16} />
+      <span style={{ flex: 1 }}>{notice.text}</span>
+      <style>{`@keyframes ds-notice-in { from { transform: translateY(8px); } to { transform: translateY(0); } }`}</style>
     </button>
   );
 }

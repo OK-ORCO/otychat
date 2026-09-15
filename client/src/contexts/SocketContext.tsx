@@ -118,6 +118,7 @@ interface ChatMessage {
   odId: string;
   odUserId: number;
   odUsername: string;
+  odColor: string;
   odContent: string;
   odType: 'text' | 'drawing' | 'image';
   odImageData?: string;
@@ -131,6 +132,7 @@ interface DM {
   odId: string;
   odFromId: number;
   odFromName: string;
+  odFromColor?: string;
   odToId: number;
   odToName: string;
   odContent: string;
@@ -583,10 +585,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       const zone = data.newZonesUnlocked && data.newZonesUnlocked[0];
       addFeedItem({
         type: 'level-up',
-        message: `You reached Level ${data.newLevel}!${zone ? ` New zone unlocked: ${zone}` : ''}`,
+        message: `You reached Level ${data.newLevel}${zone ? `. New zone unlocked: ${zone}` : ''}`,
         icon: '🎉',
       });
-      showNotice(`Level ${data.newLevel}!${zone ? ` ${zone} unlocked` : ''}`, 'success');
+      showNotice(`Level ${data.newLevel}${zone ? `. ${zone} unlocked` : ''}`, 'success');
     });
 
     // Everyone else's activity, broadcast by the server
@@ -704,12 +706,14 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       in_queue: number;
       created_at: string;
       username: string;
+      name_color?: string;
     };
 
     const mapChat = (sm: ServerChatMessage, inQueue?: boolean): ChatMessage => ({
       odId: String(sm.id),
       odUserId: sm.user_id,
       odUsername: sm.username,
+      odColor: sm.name_color || '#3b62c4',
       odContent: sm.text || '',
       odType: sm.type || (sm.drawing ? 'drawing' : 'text'),
       odImageData: sm.drawing || undefined,
@@ -809,10 +813,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       }, msLeft);
       addFeedItem({
         type: 'pokemon',
-        message: `A wild ${data.isShiny ? 'shiny ' : ''}${data.pokemonName} appeared!`,
+        message: `A wild ${data.isShiny ? 'shiny ' : ''}${data.pokemonName} appeared`,
         icon: data.isShiny ? '✨' : '🌿',
       });
-      showNotice(`${data.isShiny ? '✨ SHINY ' : '🌿 '}${data.pokemonName} appeared! Go to the Pokémon tab`, data.isShiny ? 'success' : 'info');
+      showNotice(`${data.isShiny ? 'Shiny ' : ''}${data.pokemonName} appeared. Go to the Pokémon tab`, data.isShiny ? 'success' : 'info');
       if (navigator.vibrate) navigator.vibrate(data.isShiny ? [100, 50, 100, 50, 300] : [150, 80, 150]);
     });
 
@@ -832,7 +836,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setActivePokemon(null);
       setCatchResult({
         kind: 'caught',
-        message: `Gotcha! ${data.isShiny ? 'Shiny ' : ''}${data.pokemonName} was caught${data.isQuickCatch ? ' (quick catch bonus)' : ''}!`,
+        message: `Caught ${data.isShiny ? 'shiny ' : ''}${data.pokemonName}${data.isQuickCatch ? ' (quick catch bonus)' : ''}`,
         pokemonName: data.pokemonName,
         isShiny: data.isShiny,
         sprite: data.sprite,
@@ -841,7 +845,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       });
       addFeedItem({
         type: 'pokemon-caught',
-        message: `You caught ${data.isShiny ? 'a shiny ' : ''}${data.pokemonName}!`,
+        message: `You caught ${data.isShiny ? 'a shiny ' : ''}${data.pokemonName}`,
         icon: data.isShiny ? '✨' : '⚡',
       });
     });
@@ -888,7 +892,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
 
     newSocket.on('pokemon-evolved', (data: { toName: string }) => {
-      showNotice(`Evolved into ${data.toName}!`, 'success');
+      showNotice(`Evolved into ${data.toName}`, 'success');
     });
 
     newSocket.on('evolve-failed', (data: { message: string }) => {
@@ -919,10 +923,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     newSocket.on('achievement-unlocked', (data: { achievement: string; icon: string; reward?: number }) => {
       addFeedItem({
         type: 'achievement',
-        message: `Achievement unlocked: ${data.achievement}!`,
+        message: `Achievement unlocked: ${data.achievement}`,
         icon: data.icon,
       });
-      showNotice(`${data.icon} ${data.achievement}${data.reward ? ` (+${data.reward} coins)` : ''}`, 'success');
+      showNotice(`${data.achievement}${data.reward ? ` (+${data.reward} coins)` : ''}`, 'success');
     });
 
     // ========== PROFILES ==========

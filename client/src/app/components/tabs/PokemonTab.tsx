@@ -1,26 +1,32 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, CSSProperties } from 'react';
 import { useSocket } from '../../../contexts/SocketContext';
-import { getSpriteUrl, getPokemonName, RARITY_COLORS, BALL_SPRITES, STONE_SPRITES, UI_SPRITES } from '../../data/pokemon-data';
+import { getSpriteUrl, getPokemonName, BALL_SPRITES, STONE_SPRITES } from '../../data/pokemon-data';
 import Pokedex from '../Pokedex';
 import Shop from '../Shop';
+import { Bar, Window, Key, Chip, Row, Progress, Icon } from '../ds';
 
 type SubPage = 'pokedex' | 'shop' | 'zones' | null;
-// Sprite icon component for consistent sizing
-function SpriteIcon({ src, alt, size = 24 }: { src: string; alt: string; size?: number }) {
-  return (
-    <img
-      src={src}
-      alt={alt}
-      style={{
-        width: size,
-        height: size,
-        imageRendering: 'pixelated',
-        objectFit: 'contain'
-      }}
-    />
-  );
+
+function Sprite({ src, alt = '', size = 24 }: { src: string; alt?: string; size?: number }) {
+  return <img className="px" src={src} alt={alt} style={{ width: size, height: size, objectFit: 'contain', flex: 'none' }} />;
 }
 
+const BALLS: { key: 'poke' | 'great' | 'ultra' | 'master'; label: string; ballType: string }[] = [
+  { key: 'poke', label: 'Poké', ballType: 'pokeball' },
+  { key: 'great', label: 'Great', ballType: 'great' },
+  { key: 'ultra', label: 'Ultra', ballType: 'ultra' },
+  { key: 'master', label: 'Master', ballType: 'master' },
+];
+
+const STONES: { key: keyof typeof STONE_SPRITES; label: string }[] = [
+  { key: 'fire', label: 'Fire' },
+  { key: 'water', label: 'Water' },
+  { key: 'thunder', label: 'Thunder' },
+  { key: 'leaf', label: 'Leaf' },
+  { key: 'moon', label: 'Moon' },
+  { key: 'sun', label: 'Sun' },
+  { key: 'dragon', label: 'Dragon' },
+];
 
 export default function PokemonTab() {
   const {
@@ -39,18 +45,15 @@ export default function PokemonTab() {
     evolvePokemon
   } = useSocket();
 
-  // XP progress within the current level, using the server's thresholds
   const currentXp = user?.odTrainerXp || 0;
   const currentLevel = user?.odTrainerLevel || 1;
   const levelFloor = user?.odXpForCurrentLevel || 0;
   const xpForNextLevel = user?.odXpForNextLevel ?? null;
-  const xpProgress = xpForNextLevel === null
-    ? 100
-    : Math.min(100, Math.max(0, ((currentXp - levelFloor) / (xpForNextLevel - levelFloor)) * 100));
+  const zoneId = user?.odCurrentZone || 'meadow';
+  const zoneName = zones[zoneId]?.name || 'Starter Meadow';
 
   const [currentPage, setCurrentPage] = useState<SubPage>(null);
 
-  // Get unique Pokemon count
   const uniquePokemonIds = new Set(caughtPokemon.map(p => p.odPokemonId));
   const pokemonCaught = uniquePokemonIds.size;
   const shinyCaught = caughtPokemon.filter(p => p.odIsShiny).length;
@@ -77,8 +80,8 @@ export default function PokemonTab() {
     return (
       <ZoneSelector
         zones={zones}
-        currentZone={user?.odCurrentZone || 'meadow'}
-        trainerLevel={user?.odTrainerLevel || 1}
+        currentZone={zoneId}
+        trainerLevel={currentLevel}
         onSelectZone={(zone) => {
           changeZone(zone);
           setCurrentPage(null);
@@ -88,367 +91,161 @@ export default function PokemonTab() {
     );
   }
 
+  const resultTitleBg = catchResult
+    ? (catchResult.kind === 'caught' ? 'var(--ds-green)' : catchResult.fled ? 'var(--ds-red)' : 'var(--ds-panel)')
+    : undefined;
+  const resultTitleColor = catchResult && catchResult.kind !== 'caught' && !catchResult.fled ? 'var(--ds-ink)' : '#fff';
+
+  const cell: CSSProperties = {
+    background: 'var(--ds-paper)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '8px 4px'
+  };
+
   return (
-    <div className="p-4 space-y-4 pb-20">
-      {/* Trainer Card Header */}
-      <div className="p-5 rounded-3xl" style={{
-        background: 'linear-gradient(135deg, #ef4444 0%, #f97316 100%)',
-        boxShadow: '0 8px 24px rgba(239, 68, 68, 0.3)'
-      }}>
-        <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{
-            background: 'rgba(255, 255, 255, 0.2)'
-          }}>
-            <SpriteIcon src={UI_SPRITES.xp} alt="XP" size={40} />
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Bar title="Pokémon" sub={zoneName} />
+
+      <div className="ds-lcd ds-scroll" style={{ flex: 1, minHeight: 0, padding: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* trainer card */}
+        <Window title="Trainer" right={<span>Lv {currentLevel}</span>}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+            <span>Level {currentLevel}</span>
+            <span className="ds-small ds-muted">{zoneName}</span>
           </div>
-          <div className="flex-1 text-white">
-            <h2 style={{
-              fontFamily: 'Fredoka, sans-serif',
-              fontSize: '20px',
-              fontWeight: '700'
-            }}>
-              Pokémon Safari
-            </h2>
-            <div className="flex gap-4 mt-1">
-              <span style={{ fontSize: '13px', opacity: 0.9 }}>
-                🎮 Level {currentLevel}
-              </span>
-              <span style={{ fontSize: '13px', opacity: 0.9 }}>
-                📍 {zones[user?.odCurrentZone || 'meadow']?.name || 'Starter Meadow'}
-              </span>
+          <Progress
+            value={xpForNextLevel === null ? 1 : currentXp - levelFloor}
+            max={xpForNextLevel === null ? 1 : xpForNextLevel - levelFloor}
+          />
+          <div className="ds-small ds-muted" style={{ marginTop: 4, display: 'flex', justifyContent: 'space-between' }}>
+            <span>XP</span>
+            <span>{xpForNextLevel === null ? `${currentXp} · max level` : `${currentXp} / ${xpForNextLevel}`}</span>
+          </div>
+        </Window>
+
+        {/* outcome of the last throw */}
+        {catchResult && (
+          <div className="ds-window">
+            <div className="ds-window-title" style={{ background: resultTitleBg, color: resultTitleColor }}>
+              <span>{catchResult.kind === 'caught' ? 'Caught' : catchResult.fled ? 'It fled' : 'It broke free'}</span>
+              <button onClick={clearCatchResult} title="Dismiss" style={{ background: 'none', border: 0, color: 'inherit', padding: 0, display: 'flex' }}>
+                <Icon name="x" size={14} />
+              </button>
+            </div>
+            <div className="ds-window-body" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {catchResult.sprite
+                ? <Sprite src={catchResult.sprite} size={48} />
+                : <Icon name="pokeball" size={24} />}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div>{catchResult.message}</div>
+                {catchResult.kind === 'caught' && (
+                  <div className="ds-small ds-muted">+{catchResult.xp} XP · +{catchResult.coins} coins</div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* XP Progress Bar */}
-        <div className="mt-4">
-          <div className="flex items-center justify-between text-white text-xs mb-1">
-            <span style={{ fontFamily: 'Fredoka, sans-serif' }}>XP Progress</span>
-            <span style={{ fontFamily: 'Fredoka, sans-serif' }}>
-              {xpForNextLevel === null ? `${currentXp} XP (max level)` : `${currentXp} / ${xpForNextLevel} XP`}
-            </span>
-          </div>
-          <div className="h-3 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.3)' }}>
-            <div
-              className="h-full rounded-full transition-all"
-              style={{
-                width: `${xpProgress}%`,
-                background: 'linear-gradient(90deg, #fbbf24 0%, #fef3c7 100%)',
-                boxShadow: '0 0 8px rgba(251, 191, 36, 0.6)'
-              }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Outcome of the last throw */}
-      {catchResult && (
-        <button
-          onClick={clearCatchResult}
-          className="w-full p-4 rounded-2xl text-left flex items-center gap-3"
-          style={{
-            background: catchResult.kind === 'caught'
-              ? 'linear-gradient(135deg, #10b981 0%, #06b6d4 100%)'
-              : catchResult.fled
-              ? 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'
-              : 'linear-gradient(135deg, #f97316 0%, #ef4444 100%)',
-            color: 'white',
-            border: 'none',
-            boxShadow: '0 6px 20px rgba(0, 0, 0, 0.15)'
-          }}
-        >
-          {catchResult.sprite ? (
-            <img src={catchResult.sprite} alt="" style={{ width: 48, height: 48, imageRendering: 'pixelated' }} />
-          ) : (
-            <span className="text-3xl">{catchResult.kind === 'caught' ? '🎉' : catchResult.fled ? '💨' : '💥'}</span>
-          )}
-          <div className="flex-1">
-            <p style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '15px', fontWeight: '700' }}>
-              {catchResult.message}
-            </p>
-            {catchResult.kind === 'caught' && (
-              <p style={{ fontSize: '12px', opacity: 0.9 }}>
-                +{catchResult.xp} XP · +{catchResult.coins} coins
-              </p>
-            )}
-          </div>
-        </button>
-      )}
-
-      {/* Active Encounter */}
-      {activePokemon ? (
-        <ActiveEncounter
-          pokemon={activePokemon}
-          ballInventory={ballInventory}
-          onCatch={catchPokemon}
-          onRun={runFromPokemon}
-        />
-      ) : (
-        <div className="p-6 rounded-3xl text-center" style={{
-          background: 'white',
-          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
-        }}>
-          <div className="text-5xl mb-3 animate-bounce">🌿</div>
-          <p style={{
-            fontFamily: 'Fredoka, sans-serif',
-            fontSize: '16px',
-            color: 'var(--text)',
-            fontWeight: '600'
-          }}>
-            Searching for Pokémon...
-          </p>
-          <p style={{
-            fontSize: '13px',
-            color: 'var(--text-muted)',
-            marginTop: '4px'
-          }}>
-            Keep participating to attract wild Pokémon!
-          </p>
-        </div>
-      )}
-
-      {/* Stats */}
-      <div className="p-5 rounded-3xl" style={{
-        background: 'white',
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
-      }}>
-        <h3 className="mb-4" style={{
-          fontFamily: 'Fredoka, sans-serif',
-          fontSize: '16px',
-          color: 'var(--text)',
-          fontWeight: '700'
-        }}>
-          <SpriteIcon src={UI_SPRITES.xp} alt='' size={20} /> Trainer Stats
-        </h3>
-
-        <div className="grid grid-cols-3 gap-3">
-          <div className="p-3 rounded-2xl text-center" style={{
-            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            color: 'white'
-          }}>
-            <div className="mb-1"><SpriteIcon src={UI_SPRITES.caught} alt="Caught" size={28} /></div>
-            <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '20px', fontWeight: '700' }}>
-              {pokemonCaught}
+        {/* encounter */}
+        {activePokemon ? (
+          <ActiveEncounter
+            pokemon={activePokemon}
+            ballInventory={ballInventory}
+            onCatch={catchPokemon}
+            onRun={runFromPokemon}
+          />
+        ) : (
+          <Window title="Tall grass" grey>
+            <div style={{ textAlign: 'center', padding: '8px 0' }}>
+              <div>Nothing here right now.</div>
+              <div className="ds-small ds-muted" style={{ marginTop: 4 }}>Keep chatting and something will show up.</div>
             </div>
-            <div style={{ fontSize: '10px', opacity: 0.9 }}>Caught</div>
-          </div>
-          <div className="p-3 rounded-2xl text-center" style={{
-            background: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
-            color: 'white'
-          }}>
-            <div className="mb-1"><SpriteIcon src={UI_SPRITES.pokedex} alt="Pokédex" size={28} /></div>
-            <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '20px', fontWeight: '700' }}>
-              {pokemonCaught}/386
-            </div>
-            <div style={{ fontSize: '10px', opacity: 0.9 }}>Pokédex</div>
-          </div>
-          <div className="p-3 rounded-2xl text-center" style={{
-            background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
-            color: 'white'
-          }}>
-            <div className="mb-1"><SpriteIcon src={UI_SPRITES.shiny} alt="Shiny" size={28} /></div>
-            <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '20px', fontWeight: '700' }}>
-              {shinyCaught}
-            </div>
-            <div style={{ fontSize: '10px', opacity: 0.9 }}>Shiny</div>
-          </div>
-        </div>
-      </div>
+          </Window>
+        )}
 
-      {/* Evolutions available right now */}
-      {evolvable.length > 0 && (
-        <div className="p-5 rounded-3xl" style={{
-          background: 'white',
-          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
-          border: '2px solid #a855f7'
-        }}>
-          <h3 className="mb-1" style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '16px', color: 'var(--text)', fontWeight: '700' }}>
-            🌟 Ready to evolve
-          </h3>
-          <p className="mb-3" style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            Stones are used up. Level evolutions are free.
-          </p>
-          <div className="space-y-3">
-            {evolvable.map(e => (
-              <div key={e.pokemonId} className="p-3 rounded-2xl" style={{ background: 'var(--bg-secondary)' }}>
-                <div className="flex items-center gap-3 mb-2">
-                  <img src={e.sprite} alt={e.name} style={{ width: 40, height: 40, imageRendering: 'pixelated' }} />
-                  <span style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '15px', fontWeight: '700', color: 'var(--text)' }}>{e.name}</span>
+        {/* stats */}
+        <Window title="Stats" pad={false}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
+            <div className="ds-stat" style={{ flexDirection: 'column', alignItems: 'center', gap: 2, borderBottom: 0, borderRight: '1px dashed #c5ccd6' }}>
+              <b>{pokemonCaught}</b>
+              <span className="ds-small ds-muted">caught</span>
+            </div>
+            <div className="ds-stat" style={{ flexDirection: 'column', alignItems: 'center', gap: 2, borderBottom: 0, borderRight: '1px dashed #c5ccd6' }}>
+              <b>{pokemonCaught}/386</b>
+              <span className="ds-small ds-muted">Pokédex</span>
+            </div>
+            <div className="ds-stat" style={{ flexDirection: 'column', alignItems: 'center', gap: 2, borderBottom: 0 }}>
+              <b>{shinyCaught}</b>
+              <span className="ds-small ds-muted">shiny</span>
+            </div>
+          </div>
+        </Window>
+
+        {/* evolutions available right now */}
+        {evolvable.length > 0 && (
+          <Window title="Ready to evolve" pad={false}>
+            <div className="ds-small ds-muted" style={{ padding: '8px 10px 0' }}>Stones are used up. Level evolutions are free.</div>
+            {evolvable.map((e, i) => (
+              <div key={e.pokemonId} style={{ borderTop: i > 0 ? '1px dashed #c5ccd6' : undefined }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px 6px' }}>
+                  <Sprite src={e.sprite} alt={e.name} size={32} />
+                  <span>{e.name}</span>
                 </div>
-                <div className="flex flex-col gap-2">
+                <div style={{ padding: '0 10px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {e.options.map(o => (
-                    <button
+                    <Key
                       key={`${o.method}-${o.stone || 'level'}-${o.toId}`}
+                      wide
                       onClick={() => evolvePokemon(e.pokemonId, o.method, o.stone || undefined)}
-                      className="flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all active:scale-95"
-                      style={{
-                        background: 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
-                        color: 'white',
-                        border: 'none'
-                      }}
+                      style={{ justifyContent: 'flex-start' }}
                     >
-                      <img src={o.toSprite} alt={o.toName} style={{ width: 32, height: 32, imageRendering: 'pixelated' }} />
-                      <span style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '14px', fontWeight: '700' }}>
-                        Evolve into {o.toName}
-                      </span>
-                      <span className="ml-auto" style={{ fontSize: '11px', opacity: 0.85 }}>
+                      <Sprite src={o.toSprite} alt={o.toName} size={24} />
+                      <span>Evolve into {o.toName}</span>
+                      <span className="ds-small ds-muted" style={{ marginLeft: 'auto' }}>
                         {o.method === 'stone' ? `uses ${o.requirement}` : o.requirement}
                       </span>
-                    </button>
+                    </Key>
                   ))}
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-      )}
+          </Window>
+        )}
 
-      {/* Ball Inventory */}
-      <div className="p-5 rounded-3xl" style={{
-        background: 'white',
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
-      }}>
-        <h3 className="mb-4" style={{
-          fontFamily: 'Fredoka, sans-serif',
-          fontSize: '16px',
-          color: 'var(--text)',
-          fontWeight: '700'
-        }}>
-          <SpriteIcon src={UI_SPRITES.pokeball} alt="" size={20} /> Poké Balls
-        </h3>
+        {/* balls */}
+        <Window title="Poké Balls" pad={false}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: '#c5ccd6' }}>
+            {BALLS.map(b => (
+              <div key={b.key} style={cell}>
+                <Sprite src={BALL_SPRITES[b.key]} alt={`${b.label} Ball`} size={24} />
+                <span>{b.key === 'poke' ? 'free' : ballInventory[b.key]}</span>
+                <span className="ds-small ds-muted">{b.label}</span>
+              </div>
+            ))}
+          </div>
+        </Window>
 
-        <div className="grid grid-cols-4 gap-2">
-          <div className="p-3 rounded-xl text-center" style={{ background: 'var(--bg-secondary)' }}>
-            <img src={BALL_SPRITES.poke} alt="Poké Ball" className="w-8 h-8 mx-auto" style={{ imageRendering: 'pixelated' }} />
-            <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '16px', fontWeight: '700', color: 'var(--text)' }}>
-              ∞
-            </div>
-            <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>Poké</div>
+        {/* stones */}
+        <Window title="Evolution Stones" pad={false}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: '#c5ccd6' }}>
+            {STONES.map(s => (
+              <div key={s.key} style={cell}>
+                <Sprite src={STONE_SPRITES[s.key]} alt={`${s.label} Stone`} size={24} />
+                <span>{stoneInventory[s.key]}</span>
+                <span className="ds-small ds-muted">{s.label}</span>
+              </div>
+            ))}
+            <div style={{ background: 'var(--ds-paper)' }} />
           </div>
-          <div className="p-3 rounded-xl text-center" style={{ background: 'var(--bg-secondary)' }}>
-            <img src={BALL_SPRITES.great} alt="Great Ball" className="w-8 h-8 mx-auto" style={{ imageRendering: 'pixelated' }} />
-            <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '16px', fontWeight: '700', color: 'var(--text)' }}>
-              {ballInventory.great}
-            </div>
-            <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>Great</div>
-          </div>
-          <div className="p-3 rounded-xl text-center" style={{ background: 'var(--bg-secondary)' }}>
-            <img src={BALL_SPRITES.ultra} alt="Ultra Ball" className="w-8 h-8 mx-auto" style={{ imageRendering: 'pixelated' }} />
-            <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '16px', fontWeight: '700', color: 'var(--text)' }}>
-              {ballInventory.ultra}
-            </div>
-            <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>Ultra</div>
-          </div>
-          <div className="p-3 rounded-xl text-center" style={{ background: 'var(--bg-secondary)' }}>
-            <img src={BALL_SPRITES.master} alt="Master Ball" className="w-8 h-8 mx-auto" style={{ imageRendering: 'pixelated' }} />
-            <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '16px', fontWeight: '700', color: 'var(--text)' }}>
-              {ballInventory.master}
-            </div>
-            <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>Master</div>
-          </div>
-        </div>
-      </div>
+        </Window>
 
-      {/* Stone Inventory */}
-      <div className="p-5 rounded-3xl" style={{
-        background: 'white',
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
-      }}>
-        <h3 className="mb-4" style={{
-          fontFamily: 'Fredoka, sans-serif',
-          fontSize: '16px',
-          color: 'var(--text)',
-          fontWeight: '700'
-        }}>
-          <SpriteIcon src={STONE_SPRITES.thunder} alt="" size={20} /> Evolution Stones
-        </h3>
-
-        <div className="grid grid-cols-4 gap-2">
-          <div className="p-2 rounded-xl text-center" style={{ background: 'var(--bg-secondary)' }}>
-            <img src={STONE_SPRITES.fire} alt="Fire Stone" className="w-7 h-7 mx-auto" style={{ imageRendering: 'pixelated' }} />
-            <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '14px', fontWeight: '700', color: 'var(--text)' }}>
-              {stoneInventory.fire}
-            </div>
-            <div style={{ fontSize: '8px', color: 'var(--text-muted)' }}>Fire</div>
-          </div>
-          <div className="p-2 rounded-xl text-center" style={{ background: 'var(--bg-secondary)' }}>
-            <img src={STONE_SPRITES.water} alt="Water Stone" className="w-7 h-7 mx-auto" style={{ imageRendering: 'pixelated' }} />
-            <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '14px', fontWeight: '700', color: 'var(--text)' }}>
-              {stoneInventory.water}
-            </div>
-            <div style={{ fontSize: '8px', color: 'var(--text-muted)' }}>Water</div>
-          </div>
-          <div className="p-2 rounded-xl text-center" style={{ background: 'var(--bg-secondary)' }}>
-            <img src={STONE_SPRITES.thunder} alt="Thunder Stone" className="w-7 h-7 mx-auto" style={{ imageRendering: 'pixelated' }} />
-            <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '14px', fontWeight: '700', color: 'var(--text)' }}>
-              {stoneInventory.thunder}
-            </div>
-            <div style={{ fontSize: '8px', color: 'var(--text-muted)' }}>Thunder</div>
-          </div>
-          <div className="p-2 rounded-xl text-center" style={{ background: 'var(--bg-secondary)' }}>
-            <img src={STONE_SPRITES.leaf} alt="Leaf Stone" className="w-7 h-7 mx-auto" style={{ imageRendering: 'pixelated' }} />
-            <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '14px', fontWeight: '700', color: 'var(--text)' }}>
-              {stoneInventory.leaf}
-            </div>
-            <div style={{ fontSize: '8px', color: 'var(--text-muted)' }}>Leaf</div>
-          </div>
-          <div className="p-2 rounded-xl text-center" style={{ background: 'var(--bg-secondary)' }}>
-            <img src={STONE_SPRITES.moon} alt="Moon Stone" className="w-7 h-7 mx-auto" style={{ imageRendering: 'pixelated' }} />
-            <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '14px', fontWeight: '700', color: 'var(--text)' }}>
-              {stoneInventory.moon}
-            </div>
-            <div style={{ fontSize: '8px', color: 'var(--text-muted)' }}>Moon</div>
-          </div>
-          <div className="p-2 rounded-xl text-center" style={{ background: 'var(--bg-secondary)' }}>
-            <img src={STONE_SPRITES.sun} alt="Sun Stone" className="w-7 h-7 mx-auto" style={{ imageRendering: 'pixelated' }} />
-            <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '14px', fontWeight: '700', color: 'var(--text)' }}>
-              {stoneInventory.sun}
-            </div>
-            <div style={{ fontSize: '8px', color: 'var(--text-muted)' }}>Sun</div>
-          </div>
-          <div className="p-2 rounded-xl text-center" style={{ background: 'var(--bg-secondary)' }}>
-            <img src={STONE_SPRITES.dragon} alt="Dragon Scale" className="w-7 h-7 mx-auto" style={{ imageRendering: 'pixelated' }} />
-            <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '14px', fontWeight: '700', color: 'var(--text)' }}>
-              {stoneInventory.dragon}
-            </div>
-            <div style={{ fontSize: '8px', color: 'var(--text-muted)' }}>Dragon</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Navigation Buttons */}
-      <div className="grid grid-cols-2 gap-3">
-        <NavButton
-          icon={UI_SPRITES.map}
-          label="Change Zone"
-          isSprite
-          color="linear-gradient(135deg, #10b981 0%, #059669 100%)"
-          onClick={() => setCurrentPage('zones')}
-        />
-        <NavButton
-          icon={UI_SPRITES.pokedex}
-          label="Pokédex"
-          isSprite
-          color="linear-gradient(135deg, #ef4444 0%, #f97316 100%)"
-          onClick={() => setCurrentPage('pokedex')}
-        />
-        <NavButton
-          icon={UI_SPRITES.shop}
-          label="Shop"
-          isSprite
-          color="linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)"
-          onClick={() => setCurrentPage('shop')}
-        />
-        <div className="p-4 rounded-2xl flex items-center gap-3" style={{
-          background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
-          color: 'white'
-        }}>
-          <SpriteIcon src={UI_SPRITES.coin} alt="Coins" size={28} />
-          <div>
-            <div style={{ fontSize: '12px', opacity: 0.9 }}>Balance</div>
-            <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '18px', fontWeight: '700' }}>
-              {user?.odCoins || 0}
-            </div>
+        {/* navigation */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <NavButton icon="map" label="Change zone" onClick={() => setCurrentPage('zones')} />
+          <NavButton icon="book" label="Pokédex" onClick={() => setCurrentPage('pokedex')} />
+          <NavButton icon="shop" label="Shop" onClick={() => setCurrentPage('shop')} />
+          <div className="ds-window" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 10px', minHeight: 42 }}>
+            <Icon name="coin" size={18} />
+            <span style={{ fontSize: 18 }}>{user?.odCoins || 0}</span>
+            <span className="ds-small ds-muted">coins</span>
           </div>
         </div>
       </div>
@@ -456,7 +253,6 @@ export default function PokemonTab() {
   );
 }
 
-// Active Encounter Component
 interface ActiveEncounterProps {
   pokemon: {
     odId: string;
@@ -485,113 +281,51 @@ function useSecondsLeft(expiresAt?: number) {
 }
 
 function ActiveEncounter({ pokemon, ballInventory, onCatch, onRun }: ActiveEncounterProps) {
-  // Use centralized sprite URL function
   const spriteUrl = pokemon.odSpriteUrl || getSpriteUrl(pokemon.odPokemonId, pokemon.odIsShiny);
   const pokemonName = pokemon.odName || getPokemonName(pokemon.odPokemonId);
   const secondsLeft = useSecondsLeft(pokemon.odExpiresAt);
 
+  const countFor = (key: 'poke' | 'great' | 'ultra' | 'master') => (key === 'poke' ? null : ballInventory[key]);
+
   return (
-    <div className="p-5 rounded-3xl" style={{
-      background: RARITY_COLORS[pokemon.odRarity],
-      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
-    }}>
-      <div className="text-center text-white">
-        <div className="text-xs uppercase tracking-wider mb-2 opacity-80">
-          {pokemon.odIsShiny && '✨ '}{pokemon.odRarity} Pokémon!
-          {secondsLeft !== null && (
-            <span style={{ marginLeft: 8, opacity: secondsLeft <= 5 ? 1 : 0.8, fontWeight: 700 }}>
-              ⏱ {secondsLeft}s
-            </span>
-          )}
+    <Window
+      title={`A wild ${pokemonName} appeared`}
+      right={secondsLeft !== null ? <Chip kind={secondsLeft <= 5 ? 'red' : undefined}>{secondsLeft}s</Chip> : undefined}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+        <img className="px" src={spriteUrl} alt={pokemonName} style={{ width: 96, height: 96, objectFit: 'contain' }} />
+        <div style={{ fontSize: 18 }}>{pokemonName}</div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <Chip>{pokemon.odRarity}</Chip>
+          {pokemon.odIsShiny && <Chip kind="q">SHINY</Chip>}
         </div>
-        <div className="w-24 h-24 mx-auto mb-3 flex items-center justify-center">
-          <img
-            src={spriteUrl}
-            alt={pokemonName}
-            className="w-full h-full object-contain"
-            style={{
-              imageRendering: 'pixelated',
-              filter: pokemon.odIsShiny ? 'drop-shadow(0 0 8px gold)' : 'none'
-            }}
-          />
-        </div>
-        <h3 style={{
-          fontFamily: 'Fredoka, sans-serif',
-          fontSize: '22px',
-          fontWeight: '700'
-        }}>
-          {pokemon.odIsShiny && '✨ '}{pokemonName}
-        </h3>
       </div>
 
-      {/* Ball Selection */}
-      <div className="mt-4 grid grid-cols-4 gap-2">
-        <button
-          onClick={() => onCatch(pokemon.odId, 'pokeball')}
-          className="p-3 rounded-xl text-center transition-all transform hover:scale-105"
-          style={{ background: 'rgba(255,255,255,0.9)' }}
-        >
-          <img src={BALL_SPRITES.poke} alt="Poké Ball" className="w-8 h-8 mx-auto" style={{ imageRendering: 'pixelated' }} />
-          <div style={{ fontSize: '10px', color: 'var(--text)', fontWeight: '600' }}>Poké</div>
-        </button>
-        <button
-          onClick={() => ballInventory.great > 0 && onCatch(pokemon.odId, 'great')}
-          disabled={ballInventory.great === 0}
-          className="p-3 rounded-xl text-center transition-all transform hover:scale-105"
-          style={{
-            background: ballInventory.great > 0 ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)',
-            opacity: ballInventory.great > 0 ? 1 : 0.5
-          }}
-        >
-          <img src={BALL_SPRITES.great} alt="Great Ball" className="w-8 h-8 mx-auto" style={{ imageRendering: 'pixelated' }} />
-          <div style={{ fontSize: '10px', color: 'var(--text)', fontWeight: '600' }}>{ballInventory.great}</div>
-        </button>
-        <button
-          onClick={() => ballInventory.ultra > 0 && onCatch(pokemon.odId, 'ultra')}
-          disabled={ballInventory.ultra === 0}
-          className="p-3 rounded-xl text-center transition-all transform hover:scale-105"
-          style={{
-            background: ballInventory.ultra > 0 ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)',
-            opacity: ballInventory.ultra > 0 ? 1 : 0.5
-          }}
-        >
-          <img src={BALL_SPRITES.ultra} alt="Ultra Ball" className="w-8 h-8 mx-auto" style={{ imageRendering: 'pixelated' }} />
-          <div style={{ fontSize: '10px', color: 'var(--text)', fontWeight: '600' }}>{ballInventory.ultra}</div>
-        </button>
-        <button
-          onClick={() => ballInventory.master > 0 && onCatch(pokemon.odId, 'master')}
-          disabled={ballInventory.master === 0}
-          className="p-3 rounded-xl text-center transition-all transform hover:scale-105"
-          style={{
-            background: ballInventory.master > 0 ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)',
-            opacity: ballInventory.master > 0 ? 1 : 0.5
-          }}
-        >
-          <img src={BALL_SPRITES.master} alt="Master Ball" className="w-8 h-8 mx-auto" style={{ imageRendering: 'pixelated' }} />
-          <div style={{ fontSize: '10px', color: 'var(--text)', fontWeight: '600' }}>{ballInventory.master}</div>
-        </button>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginTop: 10 }}>
+        {BALLS.map(b => {
+          const count = countFor(b.key);
+          const out = count !== null && count === 0;
+          return (
+            <Key
+              key={b.key}
+              col
+              disabled={out}
+              onClick={() => { if (!out) onCatch(pokemon.odId, b.ballType); }}
+              title={`${b.label} Ball`}
+              style={{ minHeight: 52 }}
+            >
+              <Sprite src={BALL_SPRITES[b.key]} alt={`${b.label} Ball`} size={24} />
+              <span>{count === null ? b.label : count}</span>
+            </Key>
+          );
+        })}
       </div>
 
-      {/* Run Button */}
-      <button
-        onClick={onRun}
-        className="w-full mt-3 py-2 rounded-xl transition-all"
-        style={{
-          background: 'rgba(255,255,255,0.2)',
-          color: 'white',
-          border: 'none',
-          fontFamily: 'Fredoka, sans-serif',
-          fontSize: '14px',
-          fontWeight: '600'
-        }}
-      >
-        🏃 Run Away
-      </button>
-    </div>
+      <Key wide onClick={onRun} style={{ marginTop: 8 }}>Run away</Key>
+    </Window>
   );
 }
 
-// Zone Selector Component
 interface ZoneSelectorProps {
   zones: Record<string, { name: string; levelRequired: number }>;
   currentZone: string;
@@ -601,127 +335,48 @@ interface ZoneSelectorProps {
 }
 
 function ZoneSelector({ zones, currentZone, trainerLevel, onSelectZone, onBack }: ZoneSelectorProps) {
-  const zoneColors: Record<string, string> = {
-    meadow: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)',
-    forest: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
-    mountain: 'linear-gradient(135deg, #f97316 0%, #ef4444 100%)',
-    ocean: 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)',
-    sky: 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)',
-    mystery: 'linear-gradient(135deg, #1f2937 0%, #374151 100%)',
-  };
-
-  const zoneIcons: Record<string, string> = {
-    meadow: '🌿',
-    forest: '🌲',
-    mountain: '🏔️',
-    ocean: '🌊',
-    sky: '☁️',
-    mystery: '❓',
-  };
-
   return (
-    <div className="min-h-screen pb-20">
-      {/* Header */}
-      <div className="p-4 flex items-center gap-3" style={{
-        background: 'rgba(255, 255, 255, 0.95)',
-        backdropFilter: 'blur(10px)'
-      }}>
-        <button
-          onClick={onBack}
-          className="text-2xl"
-          style={{ color: 'var(--accent-solid)', background: 'none', border: 'none' }}
-        >
-          ←
-        </button>
-        <h2 style={{
-          fontFamily: 'Fredoka, sans-serif',
-          fontSize: '20px',
-          fontWeight: '700'
-        }}>
-          🗺️ Select Zone
-        </h2>
-      </div>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Bar
+        title="Zones"
+        sub={`Level ${trainerLevel}`}
+        left={<button onClick={onBack} title="Back"><Icon name="back" size={16} /></button>}
+      />
+      <div className="ds-lcd ds-scroll" style={{ flex: 1, minHeight: 0, padding: 10 }}>
+        <Window title="Pick a zone" pad={false}>
+          {Object.entries(zones).map(([zoneId, zone]) => {
+            const isUnlocked = trainerLevel >= zone.levelRequired;
+            const isCurrent = currentZone === zoneId;
 
-      <div className="p-4 space-y-3">
-        {Object.entries(zones).map(([zoneId, zone]) => {
-          const isUnlocked = trainerLevel >= zone.levelRequired;
-          const isCurrent = currentZone === zoneId;
-
-          return (
-            <button
-              key={zoneId}
-              onClick={() => isUnlocked && onSelectZone(zoneId)}
-              disabled={!isUnlocked}
-              className="w-full p-5 rounded-2xl flex items-center gap-4 transition-all transform hover:scale-102 active:scale-95"
-              style={{
-                background: isUnlocked ? zoneColors[zoneId] : 'var(--bg-secondary)',
-                color: isUnlocked ? 'white' : 'var(--text-muted)',
-                border: isCurrent ? '3px solid white' : 'none',
-                boxShadow: isCurrent ? '0 0 20px rgba(236, 72, 153, 0.5)' : '0 4px 16px rgba(0, 0, 0, 0.1)',
-                opacity: isUnlocked ? 1 : 0.6
-              }}
-            >
-              <span className="text-4xl">{zoneIcons[zoneId]}</span>
-              <div className="flex-1 text-left">
-                <div style={{
-                  fontFamily: 'Fredoka, sans-serif',
-                  fontSize: '18px',
-                  fontWeight: '700'
-                }}>
-                  {zone.name}
-                </div>
-                {!isUnlocked && (
-                  <div style={{ fontSize: '12px', opacity: 0.8 }}>
-                    🔒 Requires Level {zone.levelRequired}
-                  </div>
-                )}
-                {isCurrent && (
-                  <div style={{ fontSize: '12px' }}>
-                    ✓ Current Zone
-                  </div>
-                )}
-              </div>
-            </button>
-          );
-        })}
+            if (!isUnlocked) {
+              return (
+                <Row key={zoneId} right={`Level ${zone.levelRequired} to unlock`}>
+                  <span className="ds-faint">{zone.name}</span>
+                </Row>
+              );
+            }
+            return (
+              <Row key={zoneId} onClick={() => onSelectZone(zoneId)} right={isCurrent ? <Chip kind="blue">current</Chip> : undefined}>
+                <span>{zone.name}</span>
+              </Row>
+            );
+          })}
+        </Window>
       </div>
     </div>
   );
 }
 
-// Nav Button Component
 interface NavButtonProps {
   icon: string;
   label: string;
-  color: string;
   onClick: () => void;
-  isSprite?: boolean;
 }
 
-function NavButton({ icon, label, color, onClick, isSprite }: NavButtonProps) {
+function NavButton({ icon, label, onClick }: NavButtonProps) {
   return (
-    <button
-      onClick={onClick}
-      className="p-4 rounded-2xl flex items-center gap-3 transition-all transform hover:scale-105 active:scale-95"
-      style={{
-        background: color,
-        color: 'white',
-        border: 'none',
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)'
-      }}
-    >
-      {isSprite ? (
-        <img src={icon} alt={label} style={{ width: 28, height: 28, imageRendering: 'pixelated' }} />
-      ) : (
-        <span className="text-2xl">{icon}</span>
-      )}
-      <span style={{
-        fontFamily: 'Fredoka, sans-serif',
-        fontSize: '14px',
-        fontWeight: '700'
-      }}>
-        {label}
-      </span>
-    </button>
+    <Key big icon={icon} onClick={onClick} style={{ justifyContent: 'flex-start' }}>
+      {label}
+    </Key>
   );
 }

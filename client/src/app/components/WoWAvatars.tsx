@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { Bar, Icon } from './ds';
 
 interface WoWAvatarsProps {
   onBack: () => void;
   onSelect: (sprite: string) => void;
+  current?: string;
 }
 
 // Local avatars path (files copied to public/avatars/)
@@ -32,7 +34,7 @@ const WOW_AVATARS = [
   { id: 661550, label: 'Avatar 20' },
 ];
 
-export default function WoWAvatars({ onBack, onSelect }: WoWAvatarsProps) {
+export default function WoWAvatars({ onBack, onSelect, current }: WoWAvatarsProps) {
   const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set());
   const [failedImages, setFailedImages] = useState<Set<number>>(new Set());
 
@@ -44,102 +46,61 @@ export default function WoWAvatars({ onBack, onSelect }: WoWAvatarsProps) {
     setFailedImages(prev => new Set(prev).add(id));
   };
 
+  const src = (id: number) => `${AVATAR_BASE}/${id}.jpg`;
+
   const handleSelect = (id: number) => {
-    onSelect(`${AVATAR_BASE}/${id}.jpg`);
+    onSelect(src(id));
   };
 
   return (
-    <div className="min-h-screen pb-20" style={{ background: 'var(--bg-primary)' }}>
-      {/* Header */}
-      <div className="p-4 flex items-center gap-3" style={{
-        background: 'linear-gradient(135deg, #1e40af 0%, #7c3aed 100%)',
-        boxShadow: '0 4px 16px rgba(30, 64, 175, 0.3)'
-      }}>
-        <button
-          onClick={onBack}
-          className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl transition-all transform hover:scale-110"
-          style={{
-            background: 'rgba(255, 255, 255, 0.2)',
-            color: 'white',
-            border: 'none'
-          }}
-        >
-          ←
-        </button>
-        <h2 style={{
-          fontFamily: 'Fredoka, sans-serif',
-          fontSize: '18px',
-          color: 'white',
-          fontWeight: '700',
-          flex: 1
-        }}>
-          ⚔️ WoW Avatars
-        </h2>
-      </div>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Bar
+        left={<button onClick={onBack} title="Back"><Icon name="back" size={16} /></button>}
+        title="WoW avatars"
+      />
+      <div className="ds-lcd ds-scroll" style={{ flex: 1, minHeight: 0, padding: 10 }}>
+        <div className="ds-small ds-muted" style={{ textAlign: 'center', marginBottom: 8 }}>Tap one to use it as your picture.</div>
 
-      {/* Avatar Grid */}
-      <div className="p-4">
-        <p className="mb-4" style={{
-          fontSize: '13px',
-          color: 'var(--text-muted)',
-          textAlign: 'center'
-        }}>
-          Tap an avatar to use as your profile picture
-        </p>
-
-        <div className="grid grid-cols-3 gap-3">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
           {WOW_AVATARS.map((avatar) => {
             const hasLoaded = loadedImages.has(avatar.id);
             const hasFailed = failedImages.has(avatar.id);
+            const selected = current === src(avatar.id);
 
             return (
               <button
                 key={avatar.id}
                 onClick={() => !hasFailed && handleSelect(avatar.id)}
-                className="aspect-square rounded-2xl transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center overflow-hidden"
-                style={{
-                  background: 'rgba(255, 255, 255, 0.95)',
-                  backdropFilter: 'blur(10px)',
-                  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
-                  border: 'none',
-                  opacity: hasFailed ? 0.4 : 1,
-                  padding: 0
-                }}
                 disabled={hasFailed}
+                title={avatar.label}
+                style={{
+                  aspectRatio: '1',
+                  width: '100%',
+                  padding: 0,
+                  border: '1px solid var(--ds-line)',
+                  outline: selected ? '2px solid var(--ds-ink)' : undefined,
+                  outlineOffset: selected ? 1 : undefined,
+                  background: 'var(--ds-paper)',
+                  opacity: hasFailed ? 0.4 : 1,
+                  overflow: 'hidden',
+                  display: 'block'
+                }}
               >
-                <div className="w-full h-full flex items-center justify-center relative">
-                  {!hasLoaded && !hasFailed && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-12 h-12 rounded-full animate-pulse" style={{
-                        background: 'var(--bg-secondary)'
-                      }} />
-                    </div>
-                  )}
-                  <img
-                    src={`${AVATAR_BASE}/${avatar.id}.jpg`}
-                    alt={avatar.label}
-                    className="w-full h-full object-cover rounded-2xl"
-                    style={{
-                      opacity: hasLoaded ? 1 : 0,
-                      transition: 'opacity 0.2s'
-                    }}
-                    onLoad={() => handleImageLoad(avatar.id)}
-                    onError={() => handleImageError(avatar.id)}
-                  />
-                </div>
+                <img
+                  src={src(avatar.id)}
+                  alt={avatar.label}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: hasLoaded ? 1 : 0 }}
+                  onLoad={() => handleImageLoad(avatar.id)}
+                  onError={() => handleImageError(avatar.id)}
+                />
               </button>
             );
           })}
         </div>
 
-        {/* Attribution */}
-        <p className="mt-6 text-center" style={{
-          fontSize: '10px',
-          color: 'var(--text-muted)',
-          opacity: 0.6
-        }}>
+        <div className="ds-small ds-faint" style={{ textAlign: 'center', marginTop: 12 }}>
           Avatars from Battle.net / Blizzard Entertainment
-        </p>
+        </div>
       </div>
     </div>
   );

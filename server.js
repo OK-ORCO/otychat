@@ -684,7 +684,7 @@ function sendTrainerStats(socket, user) {
     // Profile
     profilePic: user.profile_pic || null,
     status: user.status || '',
-    nameColor: user.name_color || '#ec4899'
+    nameColor: user.name_color || '#3b62c4'
   });
 }
 
@@ -829,7 +829,7 @@ function emitSpawn(socket, spawn) {
   });
 
   push.sendNotification(socket.data.userId, {
-    title: `A wild ${spawn.isShiny ? 'SHINY ' : ''}${spawn.pokemon.name} appeared!`,
+    title: `A wild ${spawn.isShiny ? 'shiny ' : ''}${spawn.pokemon.name} appeared`,
     body: `${Math.round(pokemon.CATCH_WINDOW / 1000)} seconds to catch it`,
     tag: 'pokemon-spawn',
     url: '/'
@@ -918,14 +918,14 @@ io.on('connection', (socket) => {
 
     socket.data.userId = user.id;
     socket.data.username = user.username;
-    socket.data.nameColor = user.name_color || '#ec4899';
+    socket.data.nameColor = user.name_color || '#3b62c4';
 
     connectedUsers.set(socket.id, {
       username: user.username,
       odId: user.id,
       zone: user.current_zone || 'meadow',
       trainerLevel: user.trainer_level || 1,
-      nameColor: user.name_color || '#ec4899'
+      nameColor: user.name_color || '#3b62c4'
     });
 
     if (currentPresentation) {
@@ -974,6 +974,7 @@ io.on('connection', (socket) => {
       odId: dm.id.toString(),
       odFromId: dm.from_user_id,
       odFromName: dm.from_username,
+      odFromColor: dm.from_color || '#3b62c4',
       odToId: dm.to_user_id,
       odToName: dm.to_username,
       odContent: dm.content || '',
@@ -1192,7 +1193,7 @@ io.on('connection', (socket) => {
     io.emit('emoji-blast', {
       emoji,
       username: socket.data.username,
-      userColor: socket.data.nameColor || '#ec4899'
+      userColor: socket.data.nameColor || '#3b62c4'
     });
     // Note: No separate emitToDisplay needed - io.emit already reaches display sockets
 
@@ -1306,7 +1307,8 @@ io.on('connection', (socket) => {
 
     const fullMessage = {
       ...message,
-      username: socket.data.username
+      username: socket.data.username,
+      name_color: socket.data.nameColor || '#3b62c4'
     };
 
     io.emit('chat-message-added', fullMessage);
@@ -1348,7 +1350,8 @@ io.on('connection', (socket) => {
 
     const fullMessage = {
       ...message,
-      username: socket.data.username
+      username: socket.data.username,
+      name_color: socket.data.nameColor || '#3b62c4'
     };
 
     // Send to chat (visible to everyone)
@@ -1462,7 +1465,7 @@ io.on('connection', (socket) => {
       profilePic: user.profile_pic || '👤',
       title: user.title || '',
       status: user.status || '',
-      nameColor: user.name_color || '#ec4899',
+      nameColor: user.name_color || '#3b62c4',
       level: user.trainer_level || 1,
       coins: user.coins || 0,
       pokemonCaught: db.getPokemonCount(user.id),
@@ -1496,6 +1499,7 @@ io.on('connection', (socket) => {
       odId: savedDM.id.toString(),
       odFromId: socket.data.userId,
       odFromName: socket.data.username,
+      odFromColor: socket.data.nameColor || '#3b62c4',
       odToId: recipientUser.id,
       odToName: toUsername,
       odContent: content || '',
@@ -1709,7 +1713,7 @@ io.on('connection', (socket) => {
       if (invitee) {
         push.sendNotification(invitee.id, {
           title: 'POPCORN EMERGENCY',
-          body: `${host} needs you!`,
+          body: `${host} needs you`,
           tag: 'popcorn-emergency',
           url: '/'
         });
@@ -1822,7 +1826,7 @@ io.on('connection', (socket) => {
     }
     const awards = buildAwards();
     if (awards.length === 0) {
-      socket.emit('action-error', { message: 'Nothing to award yet. Do something first!' });
+      socket.emit('action-error', { message: 'Nothing to award yet' });
       return;
     }
     activeAwards = { awards, by: socket.data.username, startedAt: Date.now() };
@@ -1890,7 +1894,7 @@ io.on('connection', (socket) => {
     if (attempts >= MAX_CATCH_ATTEMPTS) {
       socket.emit('catch-failed', {
         reason: 'no_attempts',
-        message: 'Out of attempts! Pokemon fled!',
+        message: 'Out of attempts. It fled.',
         fled: true
       });
       catchAttempts.delete(odId);
@@ -2004,7 +2008,7 @@ io.on('connection', (socket) => {
         catchChance: result.catchChance,
         attemptsRemaining: fled ? 0 : attemptsRemaining,
         fled,
-        message: fled ? 'Pokemon fled!' : `It broke free! ${attemptsRemaining} attempt${attemptsRemaining !== 1 ? 's' : ''} left.`
+        message: fled ? 'It fled.' : `It broke free. ${attemptsRemaining} attempt${attemptsRemaining !== 1 ? 's' : ''} left.`
       });
 
       console.log(`[Pokemon] ${socket.data.username} failed to catch ${result.pokemon?.name || 'unknown'} (${result.reason}) - ${attemptsRemaining} attempts left`);
@@ -2169,7 +2173,7 @@ io.on('connection', (socket) => {
         emitToDisplay('stunt', {
           kind: item.stunt,
           username: socket.data.username,
-          userColor: socket.data.nameColor || '#ec4899',
+          userColor: socket.data.nameColor || '#3b62c4',
           message: text
         });
         io.emit('feed-event', {

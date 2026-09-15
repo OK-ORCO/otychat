@@ -1,0 +1,213 @@
+/*
+  DS / PictoChat design system.
+  Hard pixels: 1px charcoal outlines, 2px offset shadows, 3px corners max.
+  One bitmap face. Grey plastic, paper white, one blue bar. The only colour
+  that means anything is a person's pen colour.
+*/
+
+:root {
+  --ds-bg: #d9dde3;         /* plastic grey */
+  --ds-panel: #c7cdd6;      /* bottom-screen tray */
+  --ds-lcd: #eef2f5;        /* top-screen paper */
+  --ds-paper: #ffffff;
+  --ds-line: #3d4652;       /* the 1px outline */
+  --ds-shadow: #9aa3b0;     /* the 2px offset */
+  --ds-key: #e6e9ee;
+  --ds-key-down: #cfd5dd;
+  --ds-rule: #b7d6f0;       /* ruled paper */
+  --ds-blue: #3b62c4;
+  --ds-blue-dark: #22367a;
+  --ds-ink: #2a2f38;
+  --ds-muted: #6b7482;
+  --ds-faint: #9aa3b0;
+  --ds-yellow: #fff3c8;
+  --ds-red: #d1483c;
+  --ds-green: #2f9e5b;
+  --ds-font: 'DotGothic16', 'MS Gothic', 'Courier New', monospace;
+}
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--ds-bg);
+  color: var(--ds-ink);
+  font-family: var(--ds-font);
+  font-size: 14px;
+  line-height: 1.25;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
+  text-rendering: optimizeSpeed;
+}
+button, input, textarea, select { font-family: inherit; font-size: inherit; color: inherit; }
+button { cursor: pointer; }
+img.px { image-rendering: pixelated; }
+
+/* ---- header bar ---- */
+.ds-bar {
+  height: 34px; flex: none;
+  background: var(--ds-blue); color: #fff;
+  border-bottom: 2px solid var(--ds-blue-dark);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 10px; font-size: 15px; letter-spacing: 0.5px;
+}
+.ds-bar .ds-bar-sub { font-size: 13px; opacity: 0.95; }
+.ds-bar button { background: none; border: 0; color: #fff; padding: 0 6px; height: 34px; display: flex; align-items: center; gap: 6px; }
+
+/* ---- windows ---- */
+.ds-window {
+  border: 1px solid var(--ds-line); background: var(--ds-paper);
+  box-shadow: 2px 2px 0 var(--ds-shadow); border-radius: 2px;
+}
+.ds-window-title {
+  background: var(--ds-blue); color: #fff; padding: 4px 8px; font-size: 13px;
+  border-bottom: 1px solid var(--ds-line);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.ds-window-title.grey { background: var(--ds-panel); color: var(--ds-ink); }
+.ds-window-body { padding: 10px; }
+
+/* ---- keys (buttons) ---- */
+.ds-key {
+  border: 1px solid var(--ds-line); background: var(--ds-key); color: var(--ds-ink);
+  box-shadow: 2px 2px 0 var(--ds-shadow); border-radius: 2px;
+  min-height: 34px; padding: 0 10px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: 14px; line-height: 1; user-select: none;
+}
+.ds-key:active, .ds-key.on { background: var(--ds-key-down); box-shadow: inset 1px 1px 0 var(--ds-shadow); transform: translate(1px, 1px); }
+.ds-key.primary { background: var(--ds-blue); color: #fff; border-color: var(--ds-blue-dark); }
+.ds-key.primary:active, .ds-key.primary.on { background: var(--ds-blue-dark); }
+.ds-key.warn { background: var(--ds-yellow); }
+.ds-key.danger { background: #fbecea; color: var(--ds-red); }
+.ds-key.paper { background: var(--ds-paper); }
+.ds-key.big { min-height: 42px; font-size: 16px; }
+.ds-key.sq { width: 34px; height: 34px; padding: 0; }
+.ds-key.wide { width: 100%; }
+.ds-key.col { flex-direction: column; gap: 3px; font-size: 11px; }
+.ds-key:disabled { color: var(--ds-faint); background: var(--ds-key); box-shadow: 2px 2px 0 var(--ds-shadow); transform: none; cursor: not-allowed; }
+
+/* ---- chips ---- */
+.ds-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 1px solid var(--ds-line); background: var(--ds-key); color: var(--ds-ink);
+  padding: 0 5px; line-height: 16px; font-size: 11px; box-shadow: 1px 1px 0 var(--ds-shadow);
+  white-space: nowrap;
+}
+.ds-chip.q { background: var(--ds-yellow); }
+.ds-chip.live { background: var(--ds-green); color: #fff; }
+.ds-chip.blue { background: var(--ds-blue); color: #fff; }
+.ds-chip.red { background: var(--ds-red); color: #fff; }
+
+/* ---- fields ---- */
+.ds-field {
+  border: 1px solid var(--ds-line); background: var(--ds-paper);
+  box-shadow: inset 1px 1px 0 var(--ds-shadow);
+  min-height: 36px; padding: 0 10px; width: 100%; outline: none; font-size: 15px;
+}
+.ds-field::placeholder { color: var(--ds-faint); }
+textarea.ds-field { padding: 8px 10px; resize: none; }
+
+/* ---- rows and lists ---- */
+.ds-list { display: flex; flex-direction: column; }
+.ds-row {
+  display: flex; align-items: center; gap: 10px; padding: 9px 10px;
+  border-bottom: 1px dashed #c5ccd6; font-size: 15px; min-height: 40px;
+}
+.ds-row:last-child { border-bottom: 0; }
+.ds-row .ds-n { margin-left: auto; font-size: 12px; color: var(--ds-muted); }
+.ds-row.press { width: 100%; text-align: left; background: none; border-left: 0; border-right: 0; border-top: 0; border-radius: 0; }
+.ds-row.press:active { background: var(--ds-key-down); }
+
+.ds-h { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--ds-muted); margin: 0 0 6px 2px; }
+.ds-muted { color: var(--ds-muted); }
+.ds-faint { color: var(--ds-faint); }
+.ds-small { font-size: 12px; }
+
+/* ---- the note (a PictoChat message) ---- */
+.ds-note {
+  --note: var(--ds-blue);
+  display: flex; border: 1px solid var(--note); background: var(--ds-paper);
+  border-radius: 3px; box-shadow: 2px 2px 0 var(--ds-shadow);
+}
+.ds-note-tab {
+  width: 64px; flex: none; border-right: 1px solid var(--note); color: var(--note);
+  background: color-mix(in srgb, var(--note) 12%, #fff);
+  padding: 4px 4px; font-size: 12px; line-height: 1.1; word-break: break-all;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.ds-note-tab .t { font-size: 10px; opacity: 0.75; }
+.ds-note-tab.press { text-align: left; border-top: 0; border-bottom: 0; border-left: 0; border-radius: 0; }
+.ds-note-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ds-note-body {
+  flex: 1; min-height: 44px; padding: 3px 6px 2px;
+  background-image: linear-gradient(transparent 21px, var(--ds-rule) 21px, var(--ds-rule) 22px);
+  background-size: 100% 22px; background-position: 0 3px;
+}
+.ds-note-body .txt { font-size: 15px; line-height: 22px; color: var(--ds-ink); word-break: break-word; }
+.ds-note-body img.doodle { display: block; max-width: 100%; max-height: 160px; background: var(--ds-paper); }
+.ds-note-foot {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  border-top: 1px dashed #c5ccd6; padding: 3px 6px; font-size: 11px;
+}
+.ds-note.mine { --note: var(--ds-blue); }
+
+/* ---- paper (composer canvas) ---- */
+.ds-paper {
+  border: 1px solid var(--ds-line); background: var(--ds-paper);
+  background-image: linear-gradient(transparent 21px, var(--ds-rule) 21px, var(--ds-rule) 22px);
+  background-size: 100% 22px; position: relative;
+}
+
+/* ---- tray (bottom screen) ---- */
+.ds-tray { background: var(--ds-panel); border-top: 2px solid var(--ds-line); }
+
+/* ---- feed (top screen) ---- */
+.ds-lcd {
+  background: var(--ds-lcd);
+  background-image: linear-gradient(#e2e7ec 1px, transparent 1px);
+  background-size: 100% 8px;
+}
+
+/* ---- tab bar ---- */
+.ds-tabbar {
+  height: 56px; flex: none; background: var(--ds-bg); border-top: 2px solid var(--ds-line);
+  display: flex; padding: 5px 4px 0; gap: 4px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.ds-tab {
+  flex: 1; min-width: 0; border: 1px solid var(--ds-line); background: var(--ds-key);
+  box-shadow: 2px 2px 0 var(--ds-shadow); border-radius: 2px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  font-size: 10px; letter-spacing: 0.5px; position: relative; color: var(--ds-ink);
+}
+.ds-tab.on { background: var(--ds-blue); color: #fff; border-color: var(--ds-blue-dark); box-shadow: inset 1px 1px 0 var(--ds-blue-dark); }
+.ds-tab .ds-badge { position: absolute; top: -6px; right: -4px; }
+.ds-badge {
+  background: var(--ds-red); color: #fff; border: 1px solid var(--ds-line);
+  font-size: 10px; line-height: 12px; padding: 0 4px; min-width: 14px; text-align: center;
+}
+
+/* ---- modal ---- */
+.ds-scrim {
+  position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background-color: rgba(61, 70, 82, 0.35);
+  background-image: repeating-conic-gradient(rgba(61, 70, 82, 0.35) 0 25%, transparent 0 50%);
+  background-size: 4px 4px;
+}
+.ds-scrim.bottom { align-items: flex-end; padding: 0; }
+.ds-sheet { width: 100%; max-height: 80vh; display: flex; flex-direction: column; }
+
+/* ---- misc ---- */
+.ds-hr { border: 0; border-top: 1px dashed #c5ccd6; margin: 8px 0; }
+.ds-stat { display: flex; align-items: baseline; justify-content: space-between; padding: 6px 10px; border-bottom: 1px dashed #c5ccd6; }
+.ds-stat:last-child { border-bottom: 0; }
+.ds-stat b { font-weight: normal; font-size: 18px; }
+.ds-progress { height: 10px; border: 1px solid var(--ds-line); background: var(--ds-paper); box-shadow: inset 1px 1px 0 var(--ds-shadow); }
+.ds-progress i { display: block; height: 100%; background: var(--ds-blue); }
+.ds-swatch { width: 22px; height: 22px; border: 1px solid var(--ds-line); box-shadow: 1px 1px 0 var(--ds-shadow); padding: 0; }
+.ds-swatch.on { outline: 2px solid var(--ds-ink); outline-offset: 1px; }
+.ds-pic { border: 1px solid var(--ds-line); background: var(--ds-key); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.ds-pic img { width: 100%; height: 100%; object-fit: cover; }
+
+/* pixel-snapped scrolling areas */
+.ds-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; }

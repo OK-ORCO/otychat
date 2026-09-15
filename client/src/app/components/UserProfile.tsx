@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
+import { Bar, Window, Key, Chip, Row, Pic, Scrim, Icon } from './ds';
 
 interface UserProfileProps {
   username: string;
@@ -21,6 +22,15 @@ function timeAgo(iso: string) {
   const hours = Math.round(mins / 60);
   if (hours < 24) return `${hours} hr ago`;
   return `${Math.round(hours / 24)} d ago`;
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="ds-stat">
+      <span className="ds-muted">{label}</span>
+      <b>{value}</b>
+    </div>
+  );
 }
 
 export default function UserProfile({ username, onBack, onDM }: UserProfileProps) {
@@ -46,261 +56,94 @@ export default function UserProfile({ username, onBack, onDM }: UserProfileProps
     }, 1500);
   };
 
-  const pic = profile?.profilePic || '👤';
-  const picIsImage = pic.startsWith('data:') || pic.startsWith('http') || pic.startsWith('/');
+  const pending = '...';
 
   return (
-    <div className="min-h-screen pb-20">
-      <div className="p-4 flex items-center gap-3" style={{
-        background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)',
-        boxShadow: '0 4px 16px rgba(236, 72, 153, 0.2)'
-      }}>
-        <button
-          onClick={onBack}
-          className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl transition-all transform hover:scale-110"
-          style={{ background: 'rgba(255, 255, 255, 0.2)', color: 'white', border: 'none' }}
-        >
-          ←
-        </button>
-        <h2 style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '18px', color: 'white', fontWeight: '700' }}>
-          Profile
-        </h2>
-      </div>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Bar
+        title="Profile"
+        left={<button onClick={onBack} title="Back"><Icon name="back" size={16} /></button>}
+      />
 
-      <div className="p-4 space-y-4">
-        <div className="p-6 rounded-3xl" style={{
-          background: 'rgba(255, 255, 255, 0.95)',
-          backdropFilter: 'blur(10px)',
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)'
-        }}>
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-28 h-28 rounded-3xl flex items-center justify-center text-7xl overflow-hidden" style={{
-              background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)',
-              boxShadow: '0 4px 16px rgba(236, 72, 153, 0.2)'
-            }}>
-              {picIsImage ? (
-                <img src={pic} alt={username} className="w-full h-full object-cover" />
-              ) : (
-                <span>{pic}</span>
-              )}
+      <div className="ds-lcd ds-scroll" style={{ flex: 1, minHeight: 0, padding: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <Window>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, textAlign: 'center' }}>
+            <Pic src={profile?.profilePic} size={96} />
+            <div style={{ fontSize: 20, color: profile?.nameColor || 'var(--ds-ink)', wordBreak: 'break-all' }}>{username}</div>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
+              {profile?.title && <Chip>{profile.title}</Chip>}
+              {profile && (profile.online ? <Chip kind="live">online</Chip> : <Chip>offline</Chip>)}
+              {profile && <Chip kind="blue">Lv {profile.level}</Chip>}
             </div>
-
-            <div className="text-center">
-              <h3 style={{
-                fontFamily: 'Fredoka, sans-serif',
-                fontSize: '24px',
-                color: profile?.nameColor || 'var(--text)',
-                fontWeight: '700'
-              }}>
-                {username}
-              </h3>
-              {profile?.title && (
-                <div className="mt-1 px-3 py-1 rounded-full inline-block" style={{
-                  background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
-                  color: 'white',
-                  fontFamily: 'Fredoka, sans-serif',
-                  fontSize: '12px',
-                  fontWeight: '600'
-                }}>
-                  "{profile.title}"
-                </div>
-              )}
-              {profile && (
-                <p className="mt-1" style={{ fontSize: '12px', color: profile.online ? '#10b981' : 'var(--text-muted)', fontWeight: 600 }}>
-                  {profile.online ? '● Online' : '○ Offline'}
-                </p>
-              )}
-            </div>
-
-            {profile?.status && (
-              <p style={{ fontSize: '14px', color: 'var(--text-muted)', textAlign: 'center', maxWidth: '280px' }}>
-                {profile.status}
-              </p>
-            )}
-
-            <div className="mt-2 px-4 py-2 rounded-2xl" style={{
-              background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-              color: 'white'
-            }}>
-              <span style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '16px', fontWeight: '700' }}>
-                Level {profile?.level ?? '…'}
-              </span>
-            </div>
+            {profile?.status && <div className="ds-muted ds-small" style={{ maxWidth: 280 }}>{profile.status}</div>}
+            {profile?.notFound && <div className="ds-small" style={{ color: 'var(--ds-red)' }}>This user no longer exists.</div>}
           </div>
-        </div>
-
-        {profile?.notFound && (
-          <p className="text-center" style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-            This user no longer exists.
-          </p>
-        )}
-
-        {onDM && !isOwnProfile && (
-          <button
-            onClick={onDM}
-            className="w-full p-4 rounded-2xl transition-all transform hover:scale-105 active:scale-95"
-            style={{
-              background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)',
-              color: 'white',
-              fontFamily: 'Fredoka, sans-serif',
-              fontSize: '16px',
-              fontWeight: '700',
-              border: 'none',
-              boxShadow: '0 4px 16px rgba(236, 72, 153, 0.3)'
-            }}
-          >
-            💬 Send Message
-          </button>
-        )}
+        </Window>
 
         {!isOwnProfile && (
-          <button
-            onClick={() => setShowKudosModal(true)}
-            className="w-full p-4 rounded-2xl transition-all transform hover:scale-105 active:scale-95"
-            style={{
-              background: 'rgba(255, 255, 255, 0.95)',
-              backdropFilter: 'blur(10px)',
-              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
-              border: 'none',
-              fontFamily: 'Fredoka, sans-serif',
-              fontSize: '16px',
-              fontWeight: '700',
-              color: 'var(--text)'
-            }}
-          >
-            💖 Give Kudos
-          </button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {onDM && <Key kind="primary" icon="mail" style={{ flex: 1 }} onClick={onDM}>Send message</Key>}
+            <Key icon="heart" style={{ flex: 1 }} onClick={() => setShowKudosModal(true)}>Give kudos</Key>
+          </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
-          <StatCard icon="🪙" label="Coins" value={profile ? String(profile.coins) : '…'} />
-          <StatCard icon="⚾" label="Pokémon" value={profile ? `${profile.pokemonCaught}${profile.shinyCaught ? ` (${profile.shinyCaught} shiny)` : ''}` : '…'} />
-          <StatCard icon="🏆" label="Achievements" value={profile ? String(profile.achievements) : '…'} />
-          <StatCard icon="🍺" label="Drinks" value={profile ? String(profile.drinkCount) : '…'} />
-          <StatCard icon="💖" label="Kudos" value={profile ? String(profile.kudosReceived) : '…'} />
-          <StatCard icon="📅" label="Joined" value={profile ? formatJoined(profile.joinedAt) : '…'} />
-        </div>
+        <Window pad={false} title="Stats">
+          <Stat label="Coins" value={profile ? String(profile.coins) : pending} />
+          <Stat label="Pokemon" value={profile ? `${profile.pokemonCaught}${profile.shinyCaught ? ` (${profile.shinyCaught} shiny)` : ''}` : pending} />
+          <Stat label="Achievements" value={profile ? String(profile.achievements) : pending} />
+          <Stat label="Drinks" value={profile ? String(profile.drinkCount) : pending} />
+          <Stat label="Kudos" value={profile ? String(profile.kudosReceived) : pending} />
+          <Stat label="Joined" value={profile ? formatJoined(profile.joinedAt) : pending} />
+        </Window>
 
-        <div className="p-5 rounded-3xl" style={{
-          background: 'rgba(255, 255, 255, 0.95)',
-          backdropFilter: 'blur(10px)',
-          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
-        }}>
-          <h3 style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '16px', fontWeight: '700', color: 'var(--text)', marginBottom: '12px' }}>
-            ⚾ Recent Catches
-          </h3>
+        <Window pad={false} title="Recent catches">
           {!profile || profile.recentPokemon.length === 0 ? (
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-              {profile ? 'Nothing caught yet.' : 'Loading…'}
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {profile.recentPokemon.map((p, idx) => (
-                <div key={`${p.pokemonId}-${idx}`} className="flex items-center gap-3 pb-3 border-b" style={{ borderColor: 'var(--bg-secondary)' }}>
-                  <img src={p.sprite} alt={p.name} style={{ width: 40, height: 40, imageRendering: 'pixelated', filter: p.isShiny ? 'drop-shadow(0 0 6px gold)' : 'none' }} />
-                  <div className="flex-1">
-                    <p style={{ fontSize: '14px', color: 'var(--text)', fontWeight: 600 }}>
-                      {p.isShiny ? '✨ Shiny ' : ''}{p.name}
-                    </p>
-                    <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{timeAgo(p.caughtAt)}</p>
-                  </div>
-                </div>
-              ))}
+            <div className="ds-muted" style={{ textAlign: 'center', padding: '18px 0', fontSize: 13 }}>
+              {profile ? 'Nothing caught yet' : 'Loading'}
             </div>
+          ) : (
+            profile.recentPokemon.map((p, idx) => (
+              <Row key={`${p.pokemonId}-${idx}`} right={timeAgo(p.caughtAt)}>
+                <img className="px" src={p.sprite} alt={p.name} style={{ width: 32, height: 32 }} />
+                <span style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {p.isShiny && <Icon name="sparkle" size={14} />}
+                  {p.isShiny ? `Shiny ${p.name}` : p.name}
+                </span>
+              </Row>
+            ))
           )}
-        </div>
+        </Window>
       </div>
 
       {showKudosModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0, 0, 0, 0.5)' }}
-          onClick={() => !kudosSent && setShowKudosModal(false)}
-        >
-          <div
-            className="w-full max-w-sm p-6 rounded-3xl"
-            style={{
-              background: 'rgba(255, 255, 255, 0.98)',
-              backdropFilter: 'blur(20px)',
-              boxShadow: '0 16px 48px rgba(0, 0, 0, 0.2)'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
+        <Scrim onClose={() => !kudosSent && setShowKudosModal(false)}>
+          <Window title={`Kudos for ${username}`}>
             {kudosSent ? (
-              <div className="text-center py-4">
-                <div className="text-6xl mb-4">💖</div>
-                <p style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '18px', fontWeight: '700', color: 'var(--text)' }}>
-                  Kudos sent to {username}!
-                </p>
-                <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '8px' }}>
-                  You both earned 10 coins! 🪙
-                </p>
+              <div style={{ textAlign: 'center', padding: '8px 0' }}>
+                <Icon name="heart" size={28} />
+                <div style={{ marginTop: 6 }}>Kudos sent to {username}.</div>
+                <div className="ds-muted ds-small" style={{ marginTop: 4 }}>You both get 10 coins.</div>
               </div>
             ) : (
-              <>
-                <h3 style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '20px', fontWeight: '700', color: 'var(--text)', textAlign: 'center', marginBottom: '16px' }}>
-                  💖 Send Kudos to {username}
-                </h3>
-                <p style={{ fontSize: '14px', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '16px' }}>
-                  You both earn 10 coins! 🪙
-                </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div className="ds-small ds-muted">You both get 10 coins.</div>
                 <textarea
+                  className="ds-field"
                   value={kudosMessage}
                   onChange={(e) => setKudosMessage(e.target.value)}
                   placeholder="Add a message (optional)"
                   maxLength={100}
-                  className="w-full p-3 rounded-2xl mb-4"
-                  style={{
-                    border: '2px solid var(--bg-secondary)',
-                    background: 'var(--bg-secondary)',
-                    color: 'var(--text)',
-                    fontSize: '14px',
-                    resize: 'none',
-                    height: '80px'
-                  }}
+                  style={{ height: 80 }}
                 />
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setShowKudosModal(false)}
-                    className="flex-1 p-3 rounded-2xl transition-all"
-                    style={{ background: 'var(--bg-secondary)', color: 'var(--text)', fontFamily: 'Fredoka, sans-serif', fontWeight: '600', border: 'none' }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSendKudos}
-                    className="flex-1 p-3 rounded-2xl transition-all transform hover:scale-105"
-                    style={{
-                      background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)',
-                      color: 'white',
-                      fontFamily: 'Fredoka, sans-serif',
-                      fontWeight: '700',
-                      border: 'none',
-                      boxShadow: '0 4px 16px rgba(236, 72, 153, 0.3)'
-                    }}
-                  >
-                    Send 💖
-                  </button>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <Key style={{ flex: 1 }} onClick={() => setShowKudosModal(false)}>Cancel</Key>
+                  <Key kind="primary" icon="heart" style={{ flex: 1 }} onClick={handleSendKudos}>Send</Key>
                 </div>
-              </>
+              </div>
             )}
-          </div>
-        </div>
+          </Window>
+        </Scrim>
       )}
-    </div>
-  );
-}
-
-function StatCard({ icon, label, value }: { icon: string; label: string; value: string }) {
-  return (
-    <div className="p-4 rounded-2xl" style={{
-      background: 'rgba(255, 255, 255, 0.95)',
-      backdropFilter: 'blur(10px)',
-      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
-    }}>
-      <div className="text-2xl mb-1">{icon}</div>
-      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>{label}</div>
-      <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: '18px', fontWeight: '700', color: 'var(--text)' }}>{value}</div>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import {
   loadFavorites,
   saveFavorites,
 } from '../data/emoji-data';
+import { Key, Window, Scrim } from './ds';
 
 interface EmojiPickerProps {
   onSelect: (emoji: string, isCustom: boolean) => void;
@@ -13,30 +14,22 @@ interface EmojiPickerProps {
 
 type Category = 'custom' | 'faces' | 'gestures' | 'hearts' | 'animals' | 'food' | 'activities' | 'objects' | 'symbols';
 
-const CATEGORY_ICONS: Record<Category, string> = {
-  custom: '⭐',
-  faces: '😀',
-  gestures: '👋',
-  hearts: '❤️',
-  animals: '🐶',
-  food: '🍕',
-  activities: '🎮',
-  objects: '💡',
-  symbols: '🔥',
-};
-
 const CATEGORY_NAMES: Record<Category, string> = {
   custom: 'Fellas',
   faces: 'Faces',
-  gestures: 'Gestures',
+  gestures: 'Hands',
   hearts: 'Hearts',
   animals: 'Animals',
   food: 'Food',
-  activities: 'Activities',
-  objects: 'Objects',
+  activities: 'Games',
+  objects: 'Things',
   symbols: 'Symbols',
 };
 
+/**
+ * Reaction strip: seven favourite slots plus a "more" key that opens the full
+ * picker as a window. Emoji are content here, so they stay emoji.
+ */
 export default function EmojiPicker({ onSelect }: EmojiPickerProps) {
   const [showFullPicker, setShowFullPicker] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -47,248 +40,94 @@ export default function EmojiPicker({ onSelect }: EmojiPickerProps) {
     setFavorites(loadFavorites());
   }, []);
 
-  const handleEmojiClick = (emoji: string, isCustom: boolean) => {
+  const isCustom = (emoji: string) => /^\d+$/.test(emoji);
+
+  const handleEmojiClick = (emoji: string) => {
     if (editMode) {
-      // Toggle favorite
-      const newFavorites = favorites.includes(emoji)
+      const next = favorites.includes(emoji)
         ? favorites.filter(f => f !== emoji)
-        : [...favorites.slice(0, 6), emoji]; // Max 7 favorites
-      setFavorites(newFavorites);
-      saveFavorites(newFavorites);
+        : [...favorites.slice(0, 6), emoji];
+      setFavorites(next);
+      saveFavorites(next);
     } else {
-      onSelect(emoji, isCustom);
+      onSelect(emoji, isCustom(emoji));
       setShowFullPicker(false);
     }
   };
 
-  const handleQuickEmoji = (emoji: string) => {
-    // Custom emojis are IDs (numbers), unicode are actual emoji chars
-    const isCustom = /^\d+$/.test(emoji);
-    onSelect(emoji, isCustom);
-  };
+  const renderEmoji = (emoji: string, px: number) => (
+    isCustom(emoji)
+      ? <img src={getEmojiUrl(emoji)} alt="" style={{ width: px, height: px, objectFit: 'contain' }} />
+      : <span style={{ fontSize: px * 0.8, lineHeight: 1 }}>{emoji}</span>
+  );
 
-  // Render a single emoji (custom or unicode)
-  const renderEmoji = (emoji: string, isCustom: boolean, size: 'sm' | 'md' | 'lg' = 'md') => {
-    const sizeClasses = {
-      sm: 'w-6 h-6',
-      md: 'w-8 h-8',
-      lg: 'w-10 h-10',
-    };
-
-    const isFavorite = favorites.includes(emoji);
-
-    if (isCustom) {
-      return (
-        <div className="relative">
-          <img
-            src={getEmojiUrl(emoji)}
-            alt="emoji"
-            className={`${sizeClasses[size]} object-contain`}
-          />
-          {editMode && (
-            <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-xs ${
-              isFavorite ? 'bg-yellow-400 text-white' : 'bg-gray-300 text-gray-600'
-            }`}>
-              {isFavorite ? '★' : '+'}
-            </div>
-          )}
-        </div>
-      );
-    }
-    return (
-      <div className="relative">
-        <span className={size === 'sm' ? 'text-lg' : size === 'md' ? 'text-2xl' : 'text-3xl'}>
-          {emoji}
-        </span>
-        {editMode && (
-          <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-xs ${
-            isFavorite ? 'bg-yellow-400 text-white' : 'bg-gray-300 text-gray-600'
-          }`}>
-            {isFavorite ? '★' : '+'}
-          </div>
-        )}
-      </div>
-    );
-  };
+  const slot = (emoji: string, i: number) => (
+    <button
+      key={`${emoji}-${i}`}
+      onClick={() => onSelect(emoji, isCustom(emoji))}
+      className="ds-key sq paper"
+      style={{ width: 32, height: 32, flex: 'none' }}
+    >
+      {renderEmoji(emoji, 22)}
+    </button>
+  );
 
   return (
-    <div className="relative">
-      {/* Favorites Bar */}
-      <div className="flex items-center gap-1.5">
-        {/* Scrollable favorites */}
-        <div
-          className="favorites-bar flex items-center gap-1.5 overflow-x-auto flex-1 min-w-0"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        >
-          <style>{`.favorites-bar::-webkit-scrollbar { display: none; }`}</style>
-          {favorites.map((emoji, i) => {
-            const isCustom = /^\d+$/.test(emoji);
-            return (
-              <button
-                key={`fav-${i}`}
-                onClick={() => handleQuickEmoji(emoji)}
-                className="flex-shrink-0 transition-all transform hover:scale-110 active:scale-125"
-                style={{
-                  background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
-                  borderRadius: '12px',
-                  padding: '6px 8px',
-                  cursor: 'pointer',
-                  border: 'none',
-                  boxShadow: '0 2px 6px rgba(251, 191, 36, 0.2)',
-                }}
-              >
-                {renderEmoji(emoji, isCustom, 'sm')}
-              </button>
-            );
-          })}
+    <>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 4, overflowX: 'auto', flex: 1, minWidth: 0, scrollbarWidth: 'none' }}>
+          {favorites.map(slot)}
         </div>
-
-        {/* More button - always visible */}
-        <button
-          onClick={() => setShowFullPicker(!showFullPicker)}
-          className="flex-shrink-0 transition-all transform hover:scale-110"
-          style={{
-            background: showFullPicker
-              ? 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)'
-              : 'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)',
-            borderRadius: '12px',
-            padding: '6px 10px',
-            cursor: 'pointer',
-            border: 'none',
-            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)',
-            color: showFullPicker ? 'white' : '#6b7280',
-            fontFamily: 'Fredoka, sans-serif',
-            fontWeight: '700',
-            fontSize: '14px',
-          }}
-        >
-          •••
-        </button>
+        <Key sq onClick={() => setShowFullPicker(true)} icon="dots" title="All emoji" style={{ width: 32, height: 32, flex: 'none' }} />
       </div>
 
-      {/* Full Emoji Picker Modal */}
       {showFullPicker && (
-        <div
-          className="absolute top-full left-0 right-0 mt-2 rounded-3xl overflow-hidden z-50"
-          style={{
-            background: 'rgba(255, 255, 255, 0.98)',
-            backdropFilter: 'blur(20px)',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
-            maxHeight: '350px',
-          }}
-        >
-          {/* Header */}
-          <div className="p-3 flex items-center justify-between border-b border-gray-100">
-            <h3 style={{
-              fontFamily: 'Fredoka, sans-serif',
-              fontSize: '14px',
-              fontWeight: '700',
-              color: 'var(--text)',
-            }}>
-              {editMode ? '⭐ Edit Favorites' : '😎 All Emojis'}
-            </h3>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setEditMode(!editMode)}
-                className="px-3 py-1.5 rounded-xl transition-all"
-                style={{
-                  background: editMode
-                    ? 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)'
-                    : 'var(--bg-secondary)',
-                  color: editMode ? 'white' : 'var(--text-muted)',
-                  fontFamily: 'Fredoka, sans-serif',
-                  fontSize: '11px',
-                  fontWeight: '600',
-                  border: 'none',
-                }}
-              >
-                {editMode ? '✓ Done' : '✏️ Edit'}
-              </button>
-              <button
-                onClick={() => setShowFullPicker(false)}
-                className="w-8 h-8 rounded-full flex items-center justify-center"
-                style={{
-                  background: 'var(--bg-secondary)',
-                  border: 'none',
-                  color: 'var(--text-muted)',
-                  fontSize: '16px',
-                }}
-              >
-                ×
-              </button>
+        <Scrim onClose={() => setShowFullPicker(false)}>
+          <Window
+            pad={false}
+            title={editMode ? 'Pick your 7 favourites' : 'Emoji'}
+            right={
+              <span style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => setEditMode(!editMode)} style={{ background: 'none', border: 0, color: '#fff', fontSize: 12, textDecoration: 'underline' }}>
+                  {editMode ? 'done' : 'edit favourites'}
+                </button>
+                <button onClick={() => setShowFullPicker(false)} style={{ background: 'none', border: 0, color: '#fff', fontSize: 14 }}>✕</button>
+              </span>
+            }
+          >
+            <div style={{ display: 'flex', gap: 4, padding: 6, overflowX: 'auto', borderBottom: '1px dashed #c5ccd6', scrollbarWidth: 'none' }}>
+              {(Object.keys(CATEGORY_NAMES) as Category[]).map(cat => (
+                <Key key={cat} on={activeCategory === cat} onClick={() => setActiveCategory(cat)} style={{ minHeight: 28, fontSize: 12, padding: '0 8px', flex: 'none' }}>
+                  {CATEGORY_NAMES[cat]}
+                </Key>
+              ))}
             </div>
-          </div>
 
-          {/* Category Tabs */}
-          <div className="flex gap-1 p-2 overflow-x-auto border-b border-gray-100">
-            {(Object.keys(CATEGORY_ICONS) as Category[]).map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className="flex-shrink-0 px-3 py-2 rounded-xl transition-all"
-                style={{
-                  background: activeCategory === cat
-                    ? 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)'
-                    : 'transparent',
-                  color: activeCategory === cat ? 'white' : 'var(--text-muted)',
-                  border: 'none',
-                  fontFamily: 'Fredoka, sans-serif',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                }}
-              >
-                <span className="text-lg mr-1">{CATEGORY_ICONS[cat]}</span>
-                {CATEGORY_NAMES[cat]}
-              </button>
-            ))}
-          </div>
-
-          {/* Emoji Grid */}
-          <div className="p-3 overflow-y-auto" style={{ maxHeight: '220px' }}>
-            {editMode && (
-              <p className="text-xs text-center mb-3" style={{ color: 'var(--text-muted)' }}>
-                Tap emojis to add/remove from favorites (max 7)
-              </p>
-            )}
-
-            <div className="grid grid-cols-8 gap-1">
-              {activeCategory === 'custom' ? (
-                CUSTOM_EMOJI_IDS.map((id) => (
-                  <button
-                    key={id}
-                    onClick={() => handleEmojiClick(id, true)}
-                    className="p-2 rounded-xl transition-all hover:bg-gray-100 active:scale-110 flex items-center justify-center"
-                    style={{
-                      border: 'none',
-                      background: favorites.includes(id) && editMode
-                        ? 'rgba(251, 191, 36, 0.2)'
-                        : 'transparent',
-                    }}
-                  >
-                    {renderEmoji(id, true, 'md')}
-                  </button>
-                ))
-              ) : (
-                UNICODE_EMOJIS[activeCategory].map((emoji, i) => (
-                  <button
-                    key={`${activeCategory}-${i}`}
-                    onClick={() => handleEmojiClick(emoji, false)}
-                    className="p-2 rounded-xl transition-all hover:bg-gray-100 active:scale-110 flex items-center justify-center"
-                    style={{
-                      border: 'none',
-                      background: favorites.includes(emoji) && editMode
-                        ? 'rgba(251, 191, 36, 0.2)'
-                        : 'transparent',
-                    }}
-                  >
-                    {renderEmoji(emoji, false, 'md')}
-                  </button>
-                ))
+            <div className="ds-scroll" style={{ maxHeight: 260, padding: 6 }}>
+              {editMode && (
+                <div className="ds-small ds-muted" style={{ padding: '2px 4px 6px' }}>
+                  Tap to add or remove. Seven fit on the strip.
+                </div>
               )}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+                {(activeCategory === 'custom' ? CUSTOM_EMOJI_IDS : UNICODE_EMOJIS[activeCategory]).map((emoji, i) => {
+                  const fav = favorites.includes(emoji);
+                  return (
+                    <button
+                      key={`${activeCategory}-${i}`}
+                      onClick={() => handleEmojiClick(emoji)}
+                      className={`ds-key sq ${editMode && fav ? 'warn' : 'paper'}`}
+                      style={{ width: '100%', height: 40 }}
+                    >
+                      {renderEmoji(emoji, 26)}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        </div>
+          </Window>
+        </Scrim>
       )}
-    </div>
+    </>
   );
 }

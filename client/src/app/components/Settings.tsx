@@ -1,20 +1,14 @@
 import { useState, useEffect } from 'react';
 import ProfilePicSelector from './ProfilePicSelector';
 import StatusEditor from './StatusEditor';
-import ColorPicker from './ColorPicker';
+import ColorPicker, { COLOR_PALETTE } from './ColorPicker';
 import { loadFavorites, saveFavorites, getEmojiUrl, CUSTOM_EMOJI_IDS, UNICODE_EMOJIS } from '../data/emoji-data';
 import { usePushNotifications } from '../../hooks/usePushNotifications';
 import { useSocket } from '../../contexts/SocketContext';
-import { UI_SPRITES } from '../data/pokemon-data';
-
-function SpriteIcon({ src, size = 24 }: { src: string; size?: number }) {
-  return <img src={src} alt="" style={{ width: size, height: size, imageRendering: 'pixelated' }} />;
-}
+import { Bar, Window, Key, Row, Pic, Scrim, Progress, Icon } from './ds';
 
 interface SettingsProps {
   onBack: () => void;
-  onThemeChange?: (theme: string) => void;
-  currentTheme?: string;
   profilePic?: string;
   onProfilePicChange?: (pic: string) => void;
   status?: string;
@@ -23,20 +17,11 @@ interface SettingsProps {
   onNameColorChange?: (color: string) => void;
 }
 
-const THEMES = [
-  { id: 'waves', name: 'Ocean Waves', emoji: '🌊', description: 'Flowing wave patterns' },
-  { id: 'zigzag', name: 'Zig Zag', emoji: '⚡', description: 'Dynamic diagonal stripes' },
-  { id: 'dots', name: 'Floating Dots', emoji: '✨', description: 'Gentle floating orbs' },
-  { id: 'bubbles', name: 'Bubbles', emoji: '🫧', description: 'Rising bubbles' },
-  { id: 'gradient', name: 'Simple Gradient', emoji: '🌈', description: 'Clean gradient only' }
-];
-
-export default function Settings({ onBack, onThemeChange, currentTheme = 'gradient', profilePic, onProfilePicChange, status, onStatusChange, nameColor = '#ec4899', onNameColorChange }: SettingsProps) {
-  const { user } = useSocket();
+export default function Settings({ onBack, profilePic, onProfilePicChange, status, onStatusChange, nameColor = '#ec4899', onNameColorChange }: SettingsProps) {
+  const { user, leave } = useSocket();
   const userId = user?.odUserId || null;
   const { isSupported, isSubscribed, isLoading, permission, subscribe, unsubscribe } = usePushNotifications(userId);
 
-  const [theme, setTheme] = useState(currentTheme);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [showEmojiEditor, setShowEmojiEditor] = useState(false);
   const [soundVolume, setSoundVolume] = useState(75);
@@ -49,21 +34,12 @@ export default function Settings({ onBack, onThemeChange, currentTheme = 'gradie
     setFavorites(loadFavorites());
   }, []);
 
-  const handleThemeChange = (newTheme: string) => {
-    setTheme(newTheme);
-    if (onThemeChange) {
-      onThemeChange(newTheme);
-    }
-  };
-
   if (showProfilePicSelector) {
     return (
       <ProfilePicSelector
         onBack={() => setShowProfilePicSelector(false)}
         onSelect={(pic) => {
-          if (onProfilePicChange) {
-            onProfilePicChange(pic);
-          }
+          if (onProfilePicChange) onProfilePicChange(pic);
           setShowProfilePicSelector(false);
         }}
         currentPic={profilePic}
@@ -76,9 +52,7 @@ export default function Settings({ onBack, onThemeChange, currentTheme = 'gradie
       <StatusEditor
         onBack={() => setShowStatusEditor(false)}
         onStatusChange={(newStatus) => {
-          if (onStatusChange) {
-            onStatusChange(newStatus);
-          }
+          if (onStatusChange) onStatusChange(newStatus);
           setShowStatusEditor(false);
         }}
         currentStatus={status}
@@ -91,9 +65,7 @@ export default function Settings({ onBack, onThemeChange, currentTheme = 'gradie
       <ColorPicker
         onBack={() => setShowColorPicker(false)}
         onSelect={(color) => {
-          if (onNameColorChange) {
-            onNameColorChange(color);
-          }
+          if (onNameColorChange) onNameColorChange(color);
           setShowColorPicker(false);
         }}
         currentColor={nameColor}
@@ -101,447 +73,126 @@ export default function Settings({ onBack, onThemeChange, currentTheme = 'gradie
     );
   }
 
+  const pushStatus = !isSupported
+    ? 'Not supported in this browser.'
+    : permission === 'denied'
+      ? 'Blocked. Allow notifications in your browser settings.'
+      : isSubscribed
+        ? 'On. You get pinged for DMs and emergencies.'
+        : 'Off.';
+
   return (
-    <div className="min-h-screen pb-20">
-      {/* Header */}
-      <div className="p-4 flex items-center gap-3" style={{
-        background: 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)',
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)'
-      }}>
-        <button
-          onClick={onBack}
-          className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl transition-all transform hover:scale-110"
-          style={{
-            background: 'rgba(255, 255, 255, 0.2)',
-            color: 'white',
-            border: 'none'
-          }}
-        >
-          ←
-        </button>
-        <h2 style={{
-          fontFamily: 'Fredoka, sans-serif',
-          fontSize: '18px',
-          color: 'white',
-          fontWeight: '700'
-        }}>
-          <SpriteIcon src={UI_SPRITES.settings} size={22} /> Settings
-        </h2>
-      </div>
-
-      <div className="p-4 space-y-4">
-        {/* Theme Selector */}
-        <section>
-          <div className="p-5 rounded-3xl" style={{
-            background: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(10px)',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
-          }}>
-            <h3 className="mb-3" style={{
-              fontFamily: 'Fredoka, sans-serif',
-              fontSize: '16px',
-              color: 'var(--text)',
-              fontWeight: '700'
-            }}>
-              🎨 Background Theme
-            </h3>
-            <p className="mb-4" style={{
-              fontSize: '13px',
-              color: 'var(--text-muted)',
-              lineHeight: '1.5'
-            }}>
-              Choose an animated background pattern for the app
-            </p>
-            
-            <div className="space-y-2">
-              {THEMES.map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => handleThemeChange(t.id)}
-                  className="w-full p-4 rounded-2xl flex items-center gap-3 transition-all transform hover:scale-102"
-                  style={{
-                    background: theme === t.id 
-                      ? 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)' 
-                      : 'var(--bg-secondary)',
-                    color: theme === t.id ? 'white' : 'var(--text)',
-                    border: 'none',
-                    textAlign: 'left',
-                    boxShadow: theme === t.id ? '0 4px 12px rgba(236, 72, 153, 0.3)' : 'none'
-                  }}
-                >
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl" style={{
-                    background: theme === t.id ? 'rgba(255, 255, 255, 0.2)' : 'white'
-                  }}>
-                    {t.emoji}
-                  </div>
-                  <div className="flex-1">
-                    <div style={{
-                      fontFamily: 'Fredoka, sans-serif',
-                      fontSize: '14px',
-                      fontWeight: '700',
-                      marginBottom: '2px'
-                    }}>
-                      {t.name}
-                    </div>
-                    <div style={{
-                      fontSize: '12px',
-                      opacity: theme === t.id ? 0.9 : 0.7
-                    }}>
-                      {t.description}
-                    </div>
-                  </div>
-                  {theme === t.id && (
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{
-                      background: 'white',
-                      color: '#ec4899'
-                    }}>
-                      ✓
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Bar
+        left={<button onClick={onBack} title="Back"><Icon name="back" size={16} /></button>}
+        title="Settings"
+      />
+      <div className="ds-lcd ds-scroll" style={{ flex: 1, minHeight: 0, padding: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <Window title="Notifications">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div className="ds-small ds-muted" style={{ flex: 1 }}>{pushStatus}</div>
+            <Key
+              icon="bell"
+              kind={isSubscribed ? 'default' : 'primary'}
+              onClick={() => (isSubscribed ? unsubscribe() : subscribe())}
+              disabled={isLoading || !isSupported || permission === 'denied'}
+            >
+              {isLoading ? 'Working' : isSubscribed ? 'Turn off' : 'Turn on'}
+            </Key>
           </div>
-        </section>
+        </Window>
 
-        {/* Quick Emojis */}
-        <section>
-          <div className="p-5 rounded-3xl" style={{
-            background: 'white',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
-          }}>
-            <div className="flex justify-between items-center mb-3">
-              <h3 style={{
-                fontFamily: 'Fredoka, sans-serif',
-                fontSize: '16px',
-                color: 'var(--text)',
-                fontWeight: '700'
-              }}>
-                ⚡ Quick Reactions
-              </h3>
+        <Window title="Name colour">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+            {COLOR_PALETTE.map(({ color, name }) => (
               <button
-                onClick={() => setShowEmojiEditor(true)}
-                className="px-3 py-1.5 rounded-xl transition-all"
-                style={{
-                  background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)',
-                  color: 'white',
-                  fontFamily: 'Fredoka, sans-serif',
-                  fontSize: '11px',
-                  fontWeight: '600',
-                  border: 'none',
-                }}
-              >
-                ✏️ Edit
-              </button>
-            </div>
-            <p className="mb-4" style={{
-              fontSize: '13px',
-              color: 'var(--text-muted)'
-            }}>
-              Your favorite emojis for quick reactions
-            </p>
-            <div className="flex gap-2 flex-wrap">
-              {favorites.map((emoji, i) => {
-                const isCustom = /^\d+$/.test(emoji);
-                return (
-                  <div
-                    key={i}
-                    className="p-3 rounded-2xl"
-                    style={{
-                      background: 'var(--bg-secondary)',
-                    }}
-                  >
-                    {isCustom ? (
-                      <img src={getEmojiUrl(emoji)} alt="emoji" className="w-8 h-8 object-contain" />
-                    ) : (
-                      <span className="text-3xl">{emoji}</span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        {/* Emoji Editor Modal */}
-        {showEmojiEditor && (
-          <EmojiEditorModal
-            favorites={favorites}
-            onSave={(newFavorites) => {
-              setFavorites(newFavorites);
-              saveFavorites(newFavorites);
-              setShowEmojiEditor(false);
-            }}
-            onClose={() => setShowEmojiEditor(false)}
-          />
-        )}
-
-        {/* Profile */}
-        <section>
-          <div className="p-5 rounded-3xl" style={{
-            background: 'white',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
-          }}>
-            <h3 className="mb-4" style={{
-              fontFamily: 'Fredoka, sans-serif',
-              fontSize: '16px',
-              color: 'var(--text)',
-              fontWeight: '700'
-            }}>
-              👤 Profile
-            </h3>
-            <div className="space-y-2">
-              <SettingRow label="Profile Picture" action="Change" onClick={() => setShowProfilePicSelector(true)} />
-              <SettingRow label="Status" action="Set" onClick={() => setShowStatusEditor(true)} />
-              <SettingRow label="Name Color" action="Pick" onClick={() => setShowColorPicker(true)} color={nameColor} />
-            </div>
-          </div>
-        </section>
-
-        {/* Sounds & Haptics */}
-        <section>
-          <div className="p-5 rounded-3xl" style={{
-            background: 'white',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
-          }}>
-            <h3 className="mb-4" style={{
-              fontFamily: 'Fredoka, sans-serif',
-              fontSize: '16px',
-              color: 'var(--text)',
-              fontWeight: '700'
-            }}>
-              🔊 Sounds & Haptics
-            </h3>
-            
-            {/* Volume Slider */}
-            <div className="mb-5">
-              <div className="flex justify-between mb-2">
-                <span style={{
-                  fontSize: '14px',
-                  fontFamily: 'Nunito, sans-serif',
-                  fontWeight: '600'
-                }}>
-                  Sound Effects
-                </span>
-                <span style={{
-                  fontFamily: 'Fredoka, sans-serif',
-                  fontSize: '14px',
-                  color: '#ec4899',
-                  fontWeight: '700'
-                }}>
-                  {soundVolume}%
-                </span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={soundVolume}
-                onChange={(e) => setSoundVolume(Number(e.target.value))}
-                className="w-full h-3 rounded-full appearance-none cursor-pointer"
-                style={{
-                  background: `linear-gradient(to right, #ec4899 0%, #ec4899 ${soundVolume}%, #f3f4f6 ${soundVolume}%, #f3f4f6 100%)`,
-                  outline: 'none'
-                }}
+                key={color}
+                type="button"
+                title={name}
+                className={`ds-swatch ${nameColor === color ? 'on' : ''}`}
+                style={{ background: color, width: 28, height: 28 }}
+                onClick={() => onNameColorChange && onNameColorChange(color)}
               />
-            </div>
-
-            {/* Vibration Toggle */}
-            <div className="flex justify-between items-center p-4 rounded-2xl" style={{
-              background: 'var(--bg-secondary)'
-            }}>
-              <span style={{
-                fontSize: '14px',
-                fontFamily: 'Nunito, sans-serif',
-                fontWeight: '600'
-              }}>
-                Vibration
-              </span>
-              <button
-                onClick={() => setVibration(!vibration)}
-                className="px-5 py-2 rounded-xl transition-all transform hover:scale-105"
-                style={{
-                  background: vibration 
-                    ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' 
-                    : '#d1d5db',
-                  color: 'white',
-                  fontFamily: 'Fredoka, sans-serif',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  border: 'none',
-                  boxShadow: vibration ? '0 2px 8px rgba(16, 185, 129, 0.4)' : 'none'
-                }}
-              >
-                {vibration ? 'ON' : 'OFF'}
-              </button>
-            </div>
+            ))}
           </div>
-        </section>
-
-        {/* Push Notifications */}
-        {isSupported && (
-          <section>
-            <div className="p-5 rounded-3xl" style={{
-              background: 'white',
-              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
-            }}>
-              <h3 className="mb-4" style={{
-                fontFamily: 'Fredoka, sans-serif',
-                fontSize: '16px',
-                color: 'var(--text)',
-                fontWeight: '700'
-              }}>
-                🔔 Push Notifications
-              </h3>
-
-              <p className="mb-4" style={{
-                fontSize: '13px',
-                color: 'var(--text-muted)',
-                lineHeight: '1.5'
-              }}>
-                Get notified when you receive DMs or emergency alerts, even when the app is closed.
-              </p>
-
-              {permission === 'denied' ? (
-                <div className="p-4 rounded-2xl" style={{
-                  background: 'var(--bg-secondary)',
-                }}>
-                  <p style={{
-                    fontSize: '14px',
-                    color: 'var(--text-muted)',
-                    textAlign: 'center',
-                  }}>
-                    ⚠️ Notifications are blocked. Enable them in your browser settings.
-                  </p>
-                </div>
-              ) : (
-                <div className="flex justify-between items-center p-4 rounded-2xl" style={{
-                  background: 'var(--bg-secondary)'
-                }}>
-                  <div>
-                    <span style={{
-                      fontSize: '14px',
-                      fontFamily: 'Nunito, sans-serif',
-                      fontWeight: '600',
-                      display: 'block'
-                    }}>
-                      Push Notifications
-                    </span>
-                    <span style={{
-                      fontSize: '12px',
-                      color: 'var(--text-muted)'
-                    }}>
-                      {isSubscribed ? 'Enabled' : 'Disabled'}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => isSubscribed ? unsubscribe() : subscribe()}
-                    disabled={isLoading}
-                    className="px-5 py-2 rounded-xl transition-all transform hover:scale-105"
-                    style={{
-                      background: isSubscribed
-                        ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                        : 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)',
-                      color: 'white',
-                      fontFamily: 'Fredoka, sans-serif',
-                      fontSize: '12px',
-                      fontWeight: '700',
-                      border: 'none',
-                      boxShadow: isSubscribed
-                        ? '0 2px 8px rgba(16, 185, 129, 0.4)'
-                        : '0 2px 8px rgba(236, 72, 153, 0.4)',
-                      opacity: isLoading ? 0.7 : 1
-                    }}
-                  >
-                    {isLoading ? '...' : isSubscribed ? 'ON' : 'OFF'}
-                  </button>
-                </div>
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* About */}
-        <section>
-          <div className="p-5 rounded-3xl text-center" style={{
-            background: 'white',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
-          }}>
-            <p style={{
-              fontSize: '12px',
-              color: 'var(--text-muted)',
-              marginBottom: '8px'
-            }}>
-              OtyChat v1.0.0
-            </p>
-            <p style={{
-              fontSize: '11px',
-              color: 'var(--text-muted)'
-            }}>
-              Made with 💖 for hangouts
-            </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ color: nameColor, flex: 1 }}>{user?.odName || 'Your name'}</span>
+            <Key icon="palette" onClick={() => setShowColorPicker(true)}>Picker</Key>
           </div>
-        </section>
+        </Window>
+
+        <Window title="Profile" pad={false}>
+          <Row right={<Key onClick={() => setShowProfilePicSelector(true)}>Change</Key>}>
+            <Pic src={profilePic} size={32} />
+            <span>Profile picture</span>
+          </Row>
+          <Row right={<Key onClick={() => setShowStatusEditor(true)}>{status ? 'Edit' : 'Set'}</Key>}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div>Status</div>
+              <div className="ds-small ds-muted" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {status || 'None set'}
+              </div>
+            </div>
+          </Row>
+        </Window>
+
+        <Window title="Quick reactions" right={<button onClick={() => setShowEmojiEditor(true)} style={{ background: 'none', border: 0, color: '#fff', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}><Icon name="edit" size={14} /> Edit</button>}>
+          <div className="ds-small ds-muted" style={{ marginBottom: 8 }}>The seven on your reaction strip.</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {favorites.map((emoji, i) => {
+              const isCustom = /^\d+$/.test(emoji);
+              return (
+                <div key={i} className="ds-pic" style={{ width: 36, height: 36, fontSize: 22 }}>
+                  {isCustom ? <img src={getEmojiUrl(emoji)} alt="" style={{ width: 28, height: 28, objectFit: 'contain' }} /> : <span>{emoji}</span>}
+                </div>
+              );
+            })}
+          </div>
+        </Window>
+
+        <Window title="Sounds" pad={false}>
+          <Row right={
+            <span style={{ display: 'flex', gap: 4 }}>
+              <Key sq icon="minus" onClick={() => setSoundVolume(v => Math.max(0, v - 25))} title="Quieter" />
+              <Key sq icon="plus" onClick={() => setSoundVolume(v => Math.min(100, v + 25))} title="Louder" />
+            </span>
+          }>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Sound effects</span>
+                <span className="ds-small ds-muted">{soundVolume}%</span>
+              </div>
+              <div style={{ marginTop: 4 }}><Progress value={soundVolume} max={100} /></div>
+            </div>
+          </Row>
+          <Row right={<Key on={vibration} onClick={() => setVibration(!vibration)}>{vibration ? 'On' : 'Off'}</Key>}>
+            Vibration
+          </Row>
+        </Window>
+
+        <Window title="Log out">
+          <div className="ds-small ds-muted" style={{ marginBottom: 8 }}>You will need your password to get back in.</div>
+          <Key wide kind="danger" icon="logout" onClick={leave}>Log out</Key>
+        </Window>
+
+        <div className="ds-small ds-muted" style={{ textAlign: 'center', padding: '4px 0 8px' }}>OtyChat v1.0.0</div>
       </div>
+
+      {showEmojiEditor && (
+        <EmojiEditorModal
+          favorites={favorites}
+          onSave={(newFavorites) => {
+            setFavorites(newFavorites);
+            saveFavorites(newFavorites);
+            setShowEmojiEditor(false);
+          }}
+          onClose={() => setShowEmojiEditor(false)}
+        />
+      )}
     </div>
   );
 }
 
-interface SettingRowProps {
-  label: string;
-  action: string;
-  onClick?: () => void;
-  color?: string;
-}
-
-function SettingRow({ label, action, onClick, color }: SettingRowProps) {
-  return (
-    <div className="p-4 rounded-2xl flex justify-between items-center" style={{
-      background: 'var(--bg-secondary)'
-    }}>
-      <div className="flex items-center gap-3">
-        {color && (
-          <div
-            className="w-6 h-6 rounded-full"
-            style={{
-              background: color,
-              boxShadow: `0 0 10px ${color}60`,
-              border: '2px solid white'
-            }}
-          />
-        )}
-        <span style={{
-          fontSize: '14px',
-          fontFamily: 'Nunito, sans-serif',
-          fontWeight: '600'
-        }}>
-          {label}
-        </span>
-      </div>
-      <button
-        className="px-4 py-2 rounded-xl transition-all transform hover:scale-105"
-        style={{
-          background: color
-            ? `linear-gradient(135deg, ${color} 0%, ${color}cc 100%)`
-            : 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)',
-          color: 'white',
-          fontFamily: 'Fredoka, sans-serif',
-          fontSize: '12px',
-          fontWeight: '600',
-          border: 'none',
-          boxShadow: color
-            ? `0 2px 8px ${color}50`
-            : '0 2px 8px rgba(59, 130, 246, 0.3)'
-        }}
-        onClick={onClick}
-      >
-        {action}
-      </button>
-    </div>
-  );
-}
-
-// Emoji Editor Modal Component
 interface EmojiEditorModalProps {
   favorites: string[];
   onSave: (favorites: string[]) => void;
@@ -549,14 +200,7 @@ interface EmojiEditorModalProps {
 }
 
 type Category = 'custom' | 'faces' | 'gestures' | 'hearts' | 'symbols';
-
-const CATEGORY_ICONS: Record<Category, string> = {
-  custom: '⭐',
-  faces: '😀',
-  gestures: '👋',
-  hearts: '❤️',
-  symbols: '🔥',
-};
+const CATEGORIES: Category[] = ['custom', 'faces', 'gestures', 'hearts', 'symbols'];
 
 function EmojiEditorModal({ favorites, onSave, onClose }: EmojiEditorModalProps) {
   const [selectedFavorites, setSelectedFavorites] = useState<string[]>(favorites);
@@ -575,140 +219,69 @@ function EmojiEditorModal({ favorites, onSave, onClose }: EmojiEditorModalProps)
     return UNICODE_EMOJIS[activeCategory] || [];
   };
 
+  const renderEmoji = (emoji: string, size: number) => {
+    const isCustom = /^\d+$/.test(emoji);
+    return isCustom
+      ? <img src={getEmojiUrl(emoji)} alt="" style={{ width: size, height: size, objectFit: 'contain' }} />
+      : <span style={{ fontSize: size * 0.8, lineHeight: 1 }}>{emoji}</span>;
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
-      <div className="w-full max-w-md rounded-3xl overflow-hidden" style={{
-        background: 'white',
-        maxHeight: '80vh',
-      }}>
-        {/* Header */}
-        <div className="p-4 flex justify-between items-center" style={{
-          background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)',
-        }}>
-          <h3 style={{
-            fontFamily: 'Fredoka, sans-serif',
-            fontSize: '16px',
-            color: 'white',
-            fontWeight: '700'
-          }}>
-            ⭐ Edit Favorites ({selectedFavorites.length}/7)
-          </h3>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center"
-            style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', fontSize: '18px' }}
-          >
-            ×
-          </button>
-        </div>
-
-        {/* Selected favorites preview */}
-        <div className="p-3 border-b border-gray-100">
-          <div className="flex gap-2 flex-wrap min-h-[50px]">
-            {selectedFavorites.map((emoji, i) => {
-              const isCustom = /^\d+$/.test(emoji);
-              return (
-                <button
-                  key={i}
-                  onClick={() => toggleEmoji(emoji)}
-                  className="p-2 rounded-xl transition-all hover:scale-105"
-                  style={{ background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', border: 'none' }}
-                >
-                  {isCustom ? (
-                    <img src={getEmojiUrl(emoji)} alt="emoji" className="w-6 h-6 object-contain" />
-                  ) : (
-                    <span className="text-xl">{emoji}</span>
-                  )}
-                </button>
-              );
-            })}
-            {selectedFavorites.length === 0 && (
-              <p className="text-sm text-gray-400 p-2">Tap emojis below to add favorites</p>
-            )}
-          </div>
-        </div>
-
-        {/* Category tabs */}
-        <div className="flex gap-1 p-2 overflow-x-auto border-b border-gray-100">
-          {(Object.keys(CATEGORY_ICONS) as Category[]).map((cat) => (
+    <Scrim onClose={onClose} bottom>
+      <Window
+        pad={false}
+        className="ds-sheet"
+        title={`Quick reactions (${selectedFavorites.length}/7)`}
+        right={<button onClick={onClose} style={{ background: 'none', border: 0, color: '#fff', padding: 0, display: 'flex' }}><Icon name="x" size={14} /></button>}
+      >
+        <div style={{ padding: 8, borderBottom: '1px dashed #c5ccd6', display: 'flex', gap: 6, flexWrap: 'wrap', minHeight: 44 }}>
+          {selectedFavorites.length === 0 && (
+            <div className="ds-small ds-muted" style={{ padding: '4px 0' }}>Tap emoji below to add up to seven.</div>
+          )}
+          {selectedFavorites.map((emoji, i) => (
             <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className="flex-shrink-0 px-3 py-2 rounded-xl transition-all"
-              style={{
-                background: activeCategory === cat ? 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)' : 'transparent',
-                color: activeCategory === cat ? 'white' : 'var(--text-muted)',
-                border: 'none',
-                fontFamily: 'Fredoka, sans-serif',
-                fontSize: '12px',
-                fontWeight: '600',
-              }}
+              key={i}
+              onClick={() => toggleEmoji(emoji)}
+              className="ds-pic"
+              style={{ width: 34, height: 34, background: 'var(--ds-yellow)', padding: 0 }}
+              title="Remove"
             >
-              <span className="text-lg mr-1">{CATEGORY_ICONS[cat]}</span>
-              {cat.charAt(0).toUpperCase() + cat.slice(1)}
+              {renderEmoji(emoji, 24)}
             </button>
           ))}
         </div>
 
-        {/* Emoji grid */}
-        <div className="p-3 overflow-y-auto" style={{ maxHeight: '250px' }}>
-          <div className="grid grid-cols-8 gap-1">
+        <div className="ds-scroll" style={{ display: 'flex', gap: 4, padding: 8, borderBottom: '1px dashed #c5ccd6', overflowX: 'auto' }}>
+          {CATEGORIES.map((cat) => (
+            <Key key={cat} on={activeCategory === cat} onClick={() => setActiveCategory(cat)} style={{ flex: 'none', minHeight: 28, fontSize: 12 }}>
+              {cat.charAt(0).toUpperCase() + cat.slice(1)}
+            </Key>
+          ))}
+        </div>
+
+        <div className="ds-scroll" style={{ padding: 8, maxHeight: 250 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
             {getEmojisForCategory().map((emoji, i) => {
-              const isCustom = activeCategory === 'custom';
               const isSelected = selectedFavorites.includes(emoji);
               return (
                 <button
                   key={i}
                   onClick={() => toggleEmoji(emoji)}
-                  className="p-2 rounded-xl transition-all hover:bg-gray-100 active:scale-110 flex items-center justify-center"
-                  style={{
-                    border: 'none',
-                    background: isSelected ? 'rgba(251, 191, 36, 0.3)' : 'transparent',
-                  }}
+                  className="ds-pic"
+                  style={{ width: '100%', aspectRatio: '1', background: isSelected ? 'var(--ds-yellow)' : 'var(--ds-paper)', padding: 0 }}
                 >
-                  {isCustom ? (
-                    <img src={getEmojiUrl(emoji)} alt="emoji" className="w-7 h-7 object-contain" />
-                  ) : (
-                    <span className="text-2xl">{emoji}</span>
-                  )}
+                  {renderEmoji(emoji, 28)}
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="p-4 flex gap-3 border-t border-gray-100">
-          <button
-            onClick={onClose}
-            className="flex-1 py-3 rounded-xl"
-            style={{
-              background: 'var(--bg-secondary)',
-              border: 'none',
-              fontFamily: 'Fredoka, sans-serif',
-              fontSize: '14px',
-              fontWeight: '600',
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => onSave(selectedFavorites)}
-            className="flex-1 py-3 rounded-xl"
-            style={{
-              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-              color: 'white',
-              border: 'none',
-              fontFamily: 'Fredoka, sans-serif',
-              fontSize: '14px',
-              fontWeight: '700',
-              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
-            }}
-          >
-            ✓ Save
-          </button>
+        <div style={{ display: 'flex', gap: 6, padding: 8, borderTop: '1px dashed #c5ccd6' }}>
+          <Key style={{ flex: 1 }} onClick={onClose}>Cancel</Key>
+          <Key kind="primary" icon="check" style={{ flex: 1 }} onClick={() => onSave(selectedFavorites)}>Save</Key>
         </div>
-      </div>
-    </div>
+      </Window>
+    </Scrim>
   );
 }

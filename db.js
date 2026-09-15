@@ -981,6 +981,7 @@ function getUserDMs(userId, limit = 100) {
   return queryAll(`
     SELECT dm.*,
            u_from.username as from_username,
+           u_from.name_color as from_color,
            u_to.username as to_username
     FROM direct_messages dm
     JOIN users u_from ON dm.from_user_id = u_from.id
@@ -1036,7 +1037,7 @@ function createChatMessage(userId, text, drawing, type = 'text', inQueue = false
 
 function getChatMessages(limit = 100) {
   return queryAll(`
-    SELECT cm.*, u.username
+    SELECT cm.*, u.username, u.name_color
     FROM chat_messages cm
     JOIN users u ON cm.user_id = u.id
     ORDER BY cm.created_at ASC
@@ -1046,7 +1047,7 @@ function getChatMessages(limit = 100) {
 
 function getChatMessage(id) {
   return queryOne(`
-    SELECT cm.*, u.username
+    SELECT cm.*, u.username, u.name_color
     FROM chat_messages cm
     JOIN users u ON cm.user_id = u.id
     WHERE cm.id = ?
@@ -1069,7 +1070,7 @@ function upvoteChatMessage(messageId, userId) {
 
 function getQueueMessages() {
   return queryAll(`
-    SELECT cm.*, u.username
+    SELECT cm.*, u.username, u.name_color
     FROM chat_messages cm
     JOIN users u ON cm.user_id = u.id
     WHERE cm.in_queue = 1

@@ -122,12 +122,17 @@ OtyChat/
 - **Socket.io Client** - Real-time communication
 - **Lucide React** - Icon library
 
-### Design System
-- **Fonts**: Fredoka (headers), Nunito (body)
-- **Colors**: Pink/purple gradients for active states, green for success
-- **Style**: Rounded corners (12-16px), soft shadows, playful aesthetic
-- **Canvas**: Cream-colored "paper" with ruled lines
-- **Mobile-first**: Optimized for 390x844 iPhone viewport
+### Design System: Nintendo DS / PictoChat
+The whole app, and the Slides overlay, use one hard-pixel language. Tokens and classes live in `client/src/styles/ds.css`; primitives in `client/src/app/components/ds/` (`Bar`, `Window`, `Key`, `Chip`, `Field`, `Row`, `Note`, `Pic`, `Progress`, `Scrim`, `Icon`).
+- **Font**: DotGothic16 for all UI text, no font smoothing. Never declare a fontFamily in a component.
+- **Palette**: plastic grey ground, paper white, one blue header bar. Colour only means something when it is a person's pen colour (`odNameColor` / `odColor`) or a semantic token: `--ds-blue` primary, `--ds-green` live/success, `--ds-red` danger, `--ds-yellow` queued/warning.
+- **Shape**: 1px charcoal outlines, 2px offset shadows, 3px corners at most, keys with a real pressed state. No gradients, blur, glow or soft shadows.
+- **Messages are notes**: name tab on the left in the sender's pen colour, body on ruled paper; typed text and handwriting share the lines.
+- **Icons**: 18px line icons from `ds/Icons.tsx`. Emoji only as content (reactions, a chosen profile pic, a server-defined achievement icon). Pokémon and item sprites stay, with `className="px"`.
+- **Copy**: short, plain, no exclamation marks.
+- **Layout**: every tab is `height:100%` flex column: `Bar`, then a `ds-lcd ds-scroll` body; sub-pages put a Back control in the Bar's left slot with `title="Back"`. `MainApp` renders the tab strip. The Chat tab is the DS itself: note feed on top, `MessageComposer` paper in a `ds-tray` below.
+- **Overlay**: `otychat-extension/overlay.css` mirrors the same tokens and bundles the font (`fonts/DotGothic16.woff2` via `web_accessible_resources`).
+- **Mobile-first**: 390x844 viewport.
 
 ---
 

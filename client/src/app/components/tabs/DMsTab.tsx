@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSocket } from '../../../contexts/SocketContext';
-import { UI_SPRITES } from '../../data/pokemon-data';
 import DMConversation from '../DMConversation';
+import { Bar, Window, Row, Pic, Chip } from '../ds';
 
 interface DMsTabProps {
   username: string;
@@ -17,10 +17,6 @@ interface SelectedContact {
   unread: number;
   profilePic?: string;
   title?: string;
-}
-
-function SpriteIcon({ src, size = 24 }: { src: string; size?: number }) {
-  return <img src={src} alt="" style={{ width: size, height: size, imageRendering: 'pixelated' }} />;
 }
 
 export default function DMsTab({ username, openContact, onOpened }: DMsTabProps) {
@@ -122,140 +118,38 @@ export default function DMsTab({ username, openContact, onOpened }: DMsTabProps)
     );
   }
 
+  const unread = contacts.reduce((n, c) => n + c.unread, 0);
+
   return (
-    <div className="p-4 space-y-4">
-      <div className="p-4 rounded-3xl" style={{
-        background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)',
-        boxShadow: '0 8px 24px rgba(236, 72, 153, 0.3)'
-      }}>
-        <h2 style={{
-          fontFamily: 'Fredoka, sans-serif',
-          fontSize: '18px',
-          color: 'white',
-          fontWeight: '700'
-        }}>
-          <SpriteIcon src={UI_SPRITES.dms} size={20} /> Direct Messages
-        </h2>
-        <p style={{
-          fontSize: '12px',
-          color: 'rgba(255,255,255,0.8)',
-          marginTop: '4px'
-        }}>
-          {contacts.filter(c => c.online).length} online • {contacts.length} {contacts.length === 1 ? 'conversation' : 'conversations'}
-        </p>
-      </div>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Bar title="Messages" sub={`${unread} unread`} />
 
-      <div className="space-y-3">
-        {contacts.length === 0 ? (
-          <div className="p-8 text-center rounded-2xl relative overflow-hidden" style={{
-            background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(243,232,255,0.95) 100%)',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
-          }}>
-            {/* Decorative floating bubbles */}
-            <img src={UI_SPRITES.dms} alt="" className="absolute top-4 left-6 opacity-20" style={{ transform: 'rotate(-15deg)', width: 32, height: 32, imageRendering: 'pixelated' }} />
-            <img src={UI_SPRITES.dms} alt="" className="absolute top-8 right-8 opacity-15" style={{ transform: 'rotate(10deg)', width: 24, height: 24, imageRendering: 'pixelated' }} />
-            <img src={UI_SPRITES.shiny} alt="" className="absolute bottom-6 left-10 opacity-10" style={{ transform: 'rotate(-5deg)', width: 20, height: 20, imageRendering: 'pixelated' }} />
-            <img src={UI_SPRITES.dms} alt="" className="absolute bottom-10 right-6 opacity-15" style={{ transform: 'rotate(20deg)', width: 24, height: 24, imageRendering: 'pixelated' }} />
-
-            {/* Main content */}
-            <div className="relative z-10">
-              <div className="flex justify-center gap-2 mb-4">
-                <img src={UI_SPRITES.dms} alt="" style={{ width: 36, height: 36, imageRendering: 'pixelated', animation: 'bounce 2s infinite', animationDelay: '0s' }} />
-                <img src={UI_SPRITES.online} alt="" style={{ width: 48, height: 48, imageRendering: 'pixelated', animation: 'bounce 2s infinite', animationDelay: '0.2s' }} />
-                <img src={UI_SPRITES.dms} alt="" style={{ width: 36, height: 36, imageRendering: 'pixelated', animation: 'bounce 2s infinite', animationDelay: '0.4s' }} />
-              </div>
-              <p style={{
-                fontFamily: 'Fredoka, sans-serif',
-                fontSize: '18px',
-                color: 'var(--text)',
-                fontWeight: '700',
-                marginBottom: '6px'
-              }}>
-                No conversations yet
-              </p>
-              <p style={{
-                fontSize: '14px',
-                color: 'var(--text-muted)',
-                lineHeight: '1.5'
-              }}>
-                When friends join, you can start chatting!
-              </p>
-              <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full" style={{
-                background: 'rgba(139, 92, 246, 0.1)',
-                color: '#8b5cf6',
-                fontSize: '13px',
-                fontWeight: '600'
-              }}>
-                <SpriteIcon src={UI_SPRITES.online} size={18} />
-                <span>Invite friends to the party</span>
-              </div>
+      <div className="ds-lcd ds-scroll" style={{ flex: 1, minHeight: 0, padding: 10 }}>
+        <Window pad={false} title="People" right={<span className="ds-small">{contacts.filter(c => c.online).length} online</span>}>
+          {contacts.length === 0 ? (
+            <div className="ds-muted" style={{ textAlign: 'center', padding: '24px 0', fontSize: 13 }}>
+              No one to message yet
             </div>
-          </div>
-        ) : (
-          contacts.map((contact) => (
-            <button
-              key={contact.id}
-              onClick={() => setSelectedContact(contact)}
-              className="w-full p-5 rounded-2xl flex items-center gap-3 transition-all transform hover:scale-105"
-              style={{
-                background: 'white',
-                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
-                border: 'none',
-                textAlign: 'left'
-              }}
-            >
-              <div className="relative">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl overflow-hidden" style={{
-                  background: contact.online
-                    ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                    : 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'
-                }}>
-                  {contact.profilePic && (contact.profilePic.startsWith('data:') || contact.profilePic.startsWith('http') || contact.profilePic.startsWith('/')) ? (
-                    <img src={contact.profilePic} alt={contact.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <span>{contact.profilePic || '👤'}</span>
-                  )}
-                </div>
-                {/* Online indicator dot */}
-                <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-white" style={{
-                  background: contact.online ? '#10b981' : '#9ca3af'
-                }} />
-              </div>
-              <div className="flex-1">
-                <div style={{
-                  fontFamily: 'Fredoka, sans-serif',
-                  fontSize: '16px',
-                  fontWeight: '700',
-                  color: 'var(--text)'
-                }}>
-                  {contact.name}
-                </div>
-                {contact.title && (
-                  <div style={{
-                    fontSize: '12px',
-                    color: 'var(--text-muted)'
-                  }}>
-                    {contact.title}
-                  </div>
-                )}
-              </div>
-              {contact.unread > 0 && (
-                <span className="px-3 py-1 rounded-full" style={{
-                  background: 'var(--danger)',
-                  color: 'white',
-                  fontFamily: 'Fredoka, sans-serif',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  minWidth: '24px',
-                  textAlign: 'center',
-                  boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)'
-                }}>
-                  {contact.unread}
-                </span>
-              )}
-            </button>
-          ))
-        )}
+          ) : (
+            contacts.map(contact => {
+              const tags = contact.online || contact.unread > 0 ? (
+                <>
+                  {contact.online && <Chip kind="live">online</Chip>}
+                  {contact.unread > 0 && <Chip kind="red" style={{ marginLeft: 4 }}>{contact.unread}</Chip>}
+                </>
+              ) : undefined;
+              return (
+                <Row key={contact.id} onClick={() => setSelectedContact(contact)} right={tags}>
+                  <Pic src={contact.profilePic} size={32} />
+                  <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contact.name}</span>
+                    {contact.title && <span className="ds-muted ds-small" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contact.title}</span>}
+                  </span>
+                </Row>
+              );
+            })
+          )}
+        </Window>
       </div>
     </div>
   );

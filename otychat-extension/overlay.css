@@ -232,273 +232,144 @@
   }
 }
 
+
+/* ============================================
+   DS LOOK: shared tokens for every card below
+   ============================================ */
+
+@font-face {
+  font-family: 'OtyDot';
+  src: url(chrome-extension://__MSG_@@extension_id__/fonts/DotGothic16.woff2) format('woff2');
+  font-display: swap;
+}
+
+#otychat-overlay {
+  --ds-line: #3d4652;
+  --ds-shadow: #9aa3b0;
+  --ds-blue: #3b62c4;
+  --ds-blue-dark: #22367a;
+  --ds-key: #e6e9ee;
+  --ds-panel: #c7cdd6;
+  --ds-rule: #b7d6f0;
+  --ds-ink: #2a2f38;
+  --ds-muted: #6b7482;
+  --ds-yellow: #fff3c8;
+  --ds-red: #d1483c;
+  --ds-green: #2f9e5b;
+  --ds-font: 'OtyDot', 'DotGothic16', 'MS Gothic', 'Courier New', monospace;
+}
+
+.otychat-chip {
+  display: inline-block !important;
+  border: 2px solid var(--ds-line) !important;
+  background: var(--ds-key) !important;
+  padding: 2px 10px !important;
+  font-size: 18px !important;
+  line-height: 1.2 !important;
+  box-shadow: 2px 2px 0 var(--ds-shadow) !important;
+  white-space: nowrap !important;
+}
+.otychat-icon { width: 1em !important; height: 1em !important; vertical-align: -0.15em !important; stroke: currentColor !important; fill: none !important; stroke-width: 2 !important; }
+
 /* ============================================
    POPCORN EMERGENCY
    ============================================ */
 
 .otychat-popcorn-emergency {
   position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  background: rgba(0, 0, 0, 0.85) !important;
+  top: 0 !important; left: 0 !important;
+  width: 100% !important; height: 100% !important;
+  background: var(--ds-red) !important;
   display: none !important;
   flex-direction: column !important;
   justify-content: center !important;
   align-items: center !important;
   z-index: 999999 !important;
+  font-family: var(--ds-font) !important;
 }
+.otychat-popcorn-emergency.active { display: flex !important; animation: otychat-emergency-in 0.2s steps(3) !important; }
+@keyframes otychat-emergency-in { 0% { opacity: 0; } 100% { opacity: 1; } }
 
-.otychat-popcorn-emergency.active {
-  display: flex !important;
-  animation: otychat-emergency-in 0.5s ease-out !important;
-}
-
-@keyframes otychat-emergency-in {
-  0% { opacity: 0; }
-  100% { opacity: 1; }
-}
-
-/* Emergency broadcast bars */
 .emergency-bars {
-  position: absolute !important;
-  left: 0 !important;
-  right: 0 !important;
-  height: 60px !important;
-  display: flex !important;
+  position: absolute !important; left: 0 !important; right: 0 !important; height: 40px !important;
+  background: repeating-linear-gradient(45deg, #fbbf24 0 24px, #1f2937 24px 48px) !important;
+  border-top: 3px solid #1f2937 !important; border-bottom: 3px solid #1f2937 !important;
 }
-
 .emergency-bars.top { top: 0 !important; }
 .emergency-bars.bottom { bottom: 0 !important; }
 
-.emergency-bars::before,
-.emergency-bars::after {
-  content: '' !important;
-  flex: 1 !important;
-  animation: otychat-bar-flash 0.5s infinite alternate !important;
-}
-
-.emergency-bars::before {
-  background: linear-gradient(90deg, #ff0000, #ff6600, #ffcc00) !important;
-}
-
-.emergency-bars::after {
-  background: linear-gradient(90deg, #ffcc00, #ff6600, #ff0000) !important;
-}
-
-@keyframes otychat-bar-flash {
-  0% { opacity: 0.7; }
-  100% { opacity: 1; }
-}
-
-/* Emergency content */
 .emergency-content {
-  text-align: center !important;
-  z-index: 10 !important;
+  text-align: center !important; z-index: 10 !important;
+  background: #fff !important; border: 3px solid var(--ds-line) !important; box-shadow: 8px 8px 0 #7a1f17 !important;
+  padding: 40px 72px !important; color: var(--ds-ink) !important; min-width: 620px !important;
 }
-
-.emergency-content .popcorn-icon {
-  font-size: 120px !important;
-  animation: otychat-popcorn-bounce 0.5s ease-in-out infinite alternate !important;
-  filter: drop-shadow(0 0 30px rgba(255, 200, 0, 0.8)) !important;
-}
-
-@keyframes otychat-popcorn-bounce {
-  0% { transform: scale(1) rotate(-5deg); }
-  100% { transform: scale(1.1) rotate(5deg); }
-}
-
+.emergency-content .popcorn-icon { line-height: 1 !important; color: var(--ds-red) !important; display: flex !important; justify-content: center !important; }
+.emergency-content .popcorn-icon svg { width: 110px !important; height: 110px !important; stroke-width: 1.6 !important; animation: otychat-popcorn-bounce 0.5s steps(2) infinite alternate !important; }
+@keyframes otychat-popcorn-bounce { from { transform: translateY(0); } to { transform: translateY(-10px); } }
 .emergency-content h1 {
-  font-family: 'Impact', 'Arial Black', sans-serif !important;
-  font-size: 72px !important;
-  color: #fff !important;
-  text-shadow:
-    0 0 20px #ff0000,
-    0 0 40px #ff6600,
-    4px 4px 0 #000 !important;
-  margin: 20px 0 !important;
-  letter-spacing: 4px !important;
-  animation: otychat-text-pulse 1s ease-in-out infinite !important;
+  font-size: 64px !important; margin: 8px 0 4px !important; letter-spacing: 4px !important;
+  color: var(--ds-red) !important; font-weight: normal !important; font-family: var(--ds-font) !important;
 }
+.emergency-content .host-name { font-size: 30px !important; margin-bottom: 20px !important; color: var(--ds-ink) !important; }
 
-@keyframes otychat-text-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.02); }
-}
-
-.emergency-content .host-name {
-  font-family: 'Arial', sans-serif !important;
-  font-size: 32px !important;
-  color: #ffcc00 !important;
-  margin-bottom: 30px !important;
-}
-
-/* Responders */
-.responders {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  justify-content: center !important;
-  gap: 16px !important;
-  max-width: 800px !important;
-}
-
+.responders { display: flex !important; flex-wrap: wrap !important; gap: 10px !important; justify-content: center !important; max-width: 760px !important; }
 .responder {
-  background: rgba(255, 255, 255, 0.1) !important;
-  border: 2px solid rgba(255, 255, 255, 0.3) !important;
-  border-radius: 50px !important;
-  padding: 12px 24px !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 10px !important;
-  transition: all 0.3s ease !important;
+  display: inline-flex !important; align-items: center !important; gap: 8px !important;
+  border: 2px solid var(--ds-line) !important; background: var(--ds-key) !important; box-shadow: 2px 2px 0 var(--ds-shadow) !important;
+  padding: 6px 14px !important; font-size: 22px !important; color: var(--ds-ink) !important;
 }
-
 .responder.pending { opacity: 0.6 !important; }
+.responder.accepted { background: var(--ds-green) !important; color: #fff !important; }
+.responder.declined { background: var(--ds-red) !important; color: #fff !important; }
+.responder .status-icon { font-size: 16px !important; letter-spacing: 1px !important; }
+.responder.pop-in { animation: otychat-responder-pop 0.2s steps(2) !important; }
+@keyframes otychat-responder-pop { from { transform: scale(0.8); } to { transform: scale(1); } }
 
-.responder.accepted {
-  background: rgba(16, 185, 129, 0.3) !important;
-  border-color: #10b981 !important;
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.5) !important;
+.popcorn-kernels { position: absolute !important; inset: 0 !important; pointer-events: none !important; overflow: hidden !important; }
+.popcorn-kernels .kernel {
+  position: absolute !important; top: -20px !important; width: 10px !important; height: 10px !important;
+  background: #fde68a !important; border: 2px solid #1f2937 !important;
+  animation: otychat-kernel-fall 2s linear forwards !important;
 }
-
-.responder.accepted.pop-in {
-  animation: otychat-responder-pop 0.5s ease-out !important;
-}
-
-@keyframes otychat-responder-pop {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.2); }
-  100% { transform: scale(1); }
-}
-
-.responder.declined {
-  opacity: 0.4 !important;
-  border-color: #ef4444 !important;
-}
-
-.responder .status-icon { font-size: 24px !important; }
-
-.responder .name {
-  font-family: 'Arial', sans-serif !important;
-  font-size: 20px !important;
-  font-weight: bold !important;
-  color: #fff !important;
-}
-
-/* Popcorn kernels background */
-.popcorn-kernels {
-  position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  pointer-events: none !important;
-  overflow: hidden !important;
-}
-
-.kernel {
-  position: absolute !important;
-  font-size: 36px !important;
-  animation: otychat-kernel-pop 2s ease-out forwards !important;
-  bottom: 60px !important;
-}
-
-@keyframes otychat-kernel-pop {
-  0% {
-    opacity: 1;
-    transform: translateY(0) scale(0) rotate(0deg);
-  }
-  20% {
-    transform: translateY(-30vh) scale(1) rotate(180deg);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-80vh) scale(0.5) rotate(720deg);
-  }
-}
+@keyframes otychat-kernel-fall { to { transform: translateY(110vh) rotate(180deg); } }
 
 /* ============================================
-   QUESTION CARD (queue -> big screen)
+   QUESTION CARD (a PictoChat note on the big screen)
    ============================================ */
 
 .otychat-question {
-  position: absolute !important;
-  bottom: 48px !important;
-  left: 48px !important;
-  right: 48px !important;
-  max-width: 1100px !important;
-  margin: 0 auto !important;
-  background: rgba(255, 255, 255, 0.97) !important;
-  backdrop-filter: blur(20px) !important;
-  border-radius: 28px !important;
-  padding: 28px 36px !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25) !important;
-  border-left: 10px solid #8b5cf6 !important;
-  display: none !important;
-  pointer-events: none !important;
-  font-family: 'Fredoka', 'Nunito', system-ui, sans-serif !important;
-  color: #1f2937 !important;
-  z-index: 999998 !important;
+  position: absolute !important; bottom: 40px !important; left: 40px !important; right: 40px !important;
+  max-width: 1100px !important; margin: 0 auto !important;
+  display: none !important; pointer-events: none !important; z-index: 999998 !important;
+  background: #fff !important; border: 3px solid var(--ds-blue) !important; box-shadow: 6px 6px 0 var(--ds-shadow) !important;
+  font-family: var(--ds-font) !important; color: var(--ds-ink) !important;
+  flex-direction: row !important;
 }
+.otychat-question.active { display: flex !important; animation: otychat-question-in 0.2s steps(3) !important; }
+@keyframes otychat-question-in { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-.otychat-question.active {
-  display: block !important;
-  animation: otychat-question-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
-}
-
-@keyframes otychat-question-in {
-  from { opacity: 0; transform: translateY(80px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.otychat-question-badge {
-  display: inline-block !important;
-  padding: 6px 16px !important;
-  border-radius: 20px !important;
-  background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%) !important;
-  color: #fff !important;
-  font-size: 15px !important;
-  font-weight: 600 !important;
-  margin-bottom: 10px !important;
-}
-
-.otychat-question-votes {
-  position: absolute !important;
-  top: 22px !important;
-  right: 28px !important;
-  background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%) !important;
-  color: #fff !important;
-  padding: 10px 20px !important;
-  border-radius: 20px !important;
-  font-size: 22px !important;
-  font-weight: 700 !important;
-}
-
+.otychat-question-badge { display: none !important; }
 .otychat-question-author {
-  font-size: 22px !important;
-  font-weight: 700 !important;
-  color: #8b5cf6 !important;
-  margin-bottom: 8px !important;
+  flex: none !important; width: 200px !important; border-right: 3px solid var(--ds-blue) !important;
+  background: #eaf0fb !important; color: var(--ds-blue) !important; padding: 14px 16px !important;
+  font-size: 30px !important; word-break: break-all !important;
 }
-
+.otychat-question-content {
+  flex: 1 !important; padding: 8px 20px 12px !important; min-height: 120px !important;
+  background-image: linear-gradient(transparent 43px, var(--ds-rule) 43px, var(--ds-rule) 45px) !important;
+  background-size: 100% 45px !important; background-position: 0 6px !important;
+}
 .otychat-question-content p {
-  margin: 0 !important;
-  font-size: 34px !important;
-  line-height: 1.35 !important;
-  font-weight: 600 !important;
-  color: #1f2937 !important;
-  word-break: break-word !important;
+  margin: 0 !important; font-size: 36px !important; line-height: 45px !important;
+  color: var(--ds-ink) !important; word-break: break-word !important;
 }
-
 .otychat-question-content img {
-  display: block !important;
-  max-width: 420px !important;
-  max-height: 300px !important;
-  border-radius: 16px !important;
-  margin-top: 14px !important;
-  border: 3px solid #f0f0f0 !important;
-  background: #ffffeb !important;
+  display: block !important; max-width: 480px !important; max-height: 320px !important; margin-top: 6px !important;
+}
+.otychat-question-votes {
+  position: absolute !important; top: -18px !important; right: 20px !important;
+  border: 2px solid var(--ds-line) !important; background: var(--ds-yellow) !important; box-shadow: 2px 2px 0 var(--ds-shadow) !important;
+  padding: 4px 14px !important; font-size: 22px !important; font-family: var(--ds-font) !important;
 }
 
 /* ============================================
@@ -506,379 +377,176 @@
    ============================================ */
 
 .otychat-toasts {
-  position: absolute !important;
-  top: 32px !important;
-  right: 32px !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 12px !important;
-  pointer-events: none !important;
-  z-index: 999997 !important;
+  position: absolute !important; top: 32px !important; right: 32px !important;
+  display: flex !important; flex-direction: column !important; gap: 12px !important;
+  pointer-events: none !important; z-index: 999997 !important;
 }
-
 .otychat-toast {
-  display: flex !important;
-  align-items: center !important;
-  gap: 14px !important;
-  background: #ffffff !important;
-  border-radius: 18px !important;
-  padding: 14px 20px !important;
-  min-width: 300px !important;
-  max-width: 460px !important;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2) !important;
-  border-left: 6px solid #8b5cf6 !important;
-  font-family: 'Fredoka', 'Nunito', system-ui, sans-serif !important;
-  color: #1f2937 !important;
-  animation: otychat-toast-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), otychat-fade-out 0.5s ease-in 3.5s forwards !important;
+  display: flex !important; align-items: center !important; gap: 14px !important;
+  background: #fff !important; border: 2px solid var(--ds-line) !important; box-shadow: 4px 4px 0 var(--ds-shadow) !important;
+  border-left: 8px solid var(--ds-blue) !important;
+  padding: 10px 18px !important; min-width: 300px !important; max-width: 460px !important;
+  font-family: var(--ds-font) !important; color: var(--ds-ink) !important;
+  animation: otychat-toast-in 0.15s steps(3), otychat-fade-out 0.3s steps(3) 3.6s forwards !important;
 }
+@keyframes otychat-toast-in { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes otychat-fade-out { to { opacity: 0; } }
+.otychat-toast-icon { font-size: 28px !important; line-height: 1 !important; color: var(--ds-blue) !important; display: flex !important; }
+.otychat-toast-icon svg { width: 28px !important; height: 28px !important; }
+.otychat-toast-title { font-size: 14px !important; color: var(--ds-muted) !important; letter-spacing: 1px !important; text-transform: uppercase !important; }
+.otychat-toast-message { font-size: 20px !important; }
 
-@keyframes otychat-toast-in {
-  from { opacity: 0; transform: translateX(80px); }
-  to { opacity: 1; transform: translateX(0); }
+.otychat-catch, .otychat-levelup, .otychat-kudos {
+  position: absolute !important; top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important;
+  background: #fff !important; border: 3px solid var(--ds-line) !important; box-shadow: 8px 8px 0 var(--ds-shadow) !important;
+  padding: 32px 56px !important; text-align: center !important;
+  font-family: var(--ds-font) !important; color: var(--ds-ink) !important;
+  pointer-events: none !important; z-index: 999997 !important;
+  animation: otychat-burst 4s steps(3) forwards !important;
+  min-width: 420px !important;
 }
-
-@keyframes otychat-fade-out {
-  to { opacity: 0; transform: translateY(-10px); }
-}
-
-.otychat-toast-icon { font-size: 30px !important; line-height: 1 !important; }
-.otychat-toast-title { font-size: 15px !important; font-weight: 700 !important; color: #8b5cf6 !important; }
-.otychat-toast-message { font-size: 17px !important; font-weight: 600 !important; }
-
-/* Centre bursts */
-.otychat-catch,
-.otychat-levelup,
-.otychat-kudos {
-  position: absolute !important;
-  top: 50% !important;
-  left: 50% !important;
-  transform: translate(-50%, -50%) !important;
-  /* Fully opaque: slide text ghosts through anything translucent on a projector */
-  background: #ffffff !important;
-  border-radius: 32px !important;
-  padding: 40px 56px !important;
-  text-align: center !important;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25) !important;
-  font-family: 'Fredoka', 'Nunito', system-ui, sans-serif !important;
-  color: #1f2937 !important;
-  pointer-events: none !important;
-  z-index: 999997 !important;
-  animation: otychat-burst 4s ease-out forwards !important;
-}
-
 .otychat-kudos { animation-duration: 3.5s !important; }
-
 @keyframes otychat-burst {
-  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
-  12% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
-  20% { transform: translate(-50%, -50%) scale(1); }
-  85% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(0.85); }
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+  10% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  90% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
 }
+.otychat-catch.shiny { border-color: #c9931a !important; background: var(--ds-yellow) !important; }
+.otychat-catch-sprite { width: 160px !important; height: 160px !important; image-rendering: pixelated !important; object-fit: contain !important; }
+.otychat-catch-who { font-size: 26px !important; color: var(--ds-muted) !important; margin-top: 4px !important; }
+.otychat-catch-name { font-size: 48px !important; }
+.otychat-catch-shiny { display: inline-block !important; margin-top: 10px !important; border: 2px solid var(--ds-line) !important; background: #c9931a !important; color: #fff !important; padding: 4px 16px !important; font-size: 20px !important; letter-spacing: 2px !important; }
 
-.otychat-catch.shiny {
-  border: 4px solid gold !important;
-  background: linear-gradient(135deg, #fff3c4 0%, #ffffff 50%, #ffdbe4 100%) !important;
-}
+.otychat-levelup { border-color: var(--ds-blue) !important; }
+.otychat-levelup-stars { color: var(--ds-blue) !important; display: flex !important; justify-content: center !important; gap: 8px !important; }
+.otychat-levelup-stars svg { width: 36px !important; height: 36px !important; }
+.otychat-levelup-title { font-size: 44px !important; color: var(--ds-blue) !important; letter-spacing: 4px !important; }
+.otychat-levelup-who { font-size: 30px !important; margin-top: 4px !important; }
+.otychat-levelup-level { font-size: 24px !important; color: var(--ds-muted) !important; }
 
-.otychat-catch-sprite {
-  width: 180px !important;
-  height: 180px !important;
-  object-fit: contain !important;
-  image-rendering: pixelated !important;
-  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.2)) !important;
-}
+.otychat-kudos-heart { color: var(--ds-red) !important; display: flex !important; justify-content: center !important; }
+.otychat-kudos-heart svg { width: 64px !important; height: 64px !important; }
+.otychat-kudos-line { font-size: 30px !important; margin-top: 8px !important; }
+.otychat-kudos-from, .otychat-kudos-to { color: var(--ds-blue) !important; }
+.otychat-kudos-message { font-size: 22px !important; color: var(--ds-muted) !important; margin-top: 8px !important; }
 
-.otychat-catch-who { font-size: 30px !important; font-weight: 700 !important; color: #8b5cf6 !important; margin-top: 8px !important; }
-.otychat-catch-name { font-size: 48px !important; font-weight: 700 !important; }
-.otychat-catch-shiny {
-  display: inline-block !important;
-  margin-top: 12px !important;
-  padding: 8px 20px !important;
-  border-radius: 20px !important;
-  background: linear-gradient(135deg, #ffd700 0%, #ff69b4 100%) !important;
-  color: #fff !important;
-  font-size: 20px !important;
-  font-weight: 700 !important;
-  animation: otychat-sparkle 0.5s infinite alternate !important;
-}
-
-@keyframes otychat-sparkle {
-  from { box-shadow: 0 0 10px #ffd700; }
-  to { box-shadow: 0 0 25px #ff69b4, 0 0 40px #ffd700; }
-}
-
-.otychat-levelup { border: 4px solid #fbbf24 !important; }
-.otychat-levelup-stars { font-size: 40px !important; }
-.otychat-levelup-title { font-size: 44px !important; font-weight: 700 !important; color: #f59e0b !important; letter-spacing: 2px !important; }
-.otychat-levelup-who { font-size: 30px !important; font-weight: 700 !important; margin-top: 6px !important; }
-.otychat-levelup-level { font-size: 26px !important; font-weight: 600 !important; color: #8b5cf6 !important; }
-
-.otychat-kudos-heart { font-size: 72px !important; animation: otychat-popcorn-bounce 0.5s ease-in-out infinite alternate !important; }
-.otychat-kudos-line { font-size: 30px !important; font-weight: 600 !important; margin-top: 8px !important; }
-.otychat-kudos-from { color: #ec4899 !important; font-weight: 700 !important; }
-.otychat-kudos-to { color: #8b5cf6 !important; font-weight: 700 !important; }
-.otychat-kudos-message { font-size: 22px !important; color: #6b7280 !important; margin-top: 8px !important; }
-
-/* Doodles pop in at the bottom-left */
 .otychat-doodle {
-  position: absolute !important;
-  bottom: 48px !important;
-  left: 48px !important;
-  background: #ffffeb !important;
-  border-radius: 20px !important;
-  padding: 16px !important;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25) !important;
-  font-family: 'Fredoka', 'Nunito', system-ui, sans-serif !important;
-  color: #1f2937 !important;
-  pointer-events: none !important;
-  z-index: 999996 !important;
-  transform: rotate(-2deg) !important;
-  animation: otychat-doodle-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), otychat-fade-out 0.6s ease-in 5.3s forwards !important;
+  position: absolute !important; bottom: 48px !important; left: 48px !important;
+  display: flex !important; background: #fff !important; border: 3px solid var(--ds-line) !important; box-shadow: 6px 6px 0 var(--ds-shadow) !important;
+  font-family: var(--ds-font) !important; color: var(--ds-ink) !important;
+  pointer-events: none !important; z-index: 999996 !important;
+  animation: otychat-doodle-in 0.2s steps(3), otychat-fade-out 0.3s steps(3) 5.5s forwards !important;
 }
-
-@keyframes otychat-doodle-in {
-  from { opacity: 0; transform: rotate(-2deg) translateY(60px) scale(0.8); }
-  to { opacity: 1; transform: rotate(-2deg) translateY(0) scale(1); }
+@keyframes otychat-doodle-in { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.otychat-doodle-author {
+  flex: none !important; width: 120px !important; border-right: 3px solid var(--ds-line) !important; background: var(--ds-key) !important;
+  padding: 10px 12px !important; font-size: 22px !important; word-break: break-all !important;
 }
-
-.otychat-doodle img {
-  display: block !important;
-  max-width: 360px !important;
-  max-height: 260px !important;
-  border-radius: 12px !important;
-}
-
-.otychat-doodle-author { font-size: 18px !important; font-weight: 700 !important; color: #8b5cf6 !important; margin-bottom: 8px !important; }
-.otychat-doodle-text { font-size: 22px !important; font-weight: 600 !important; margin-top: 8px !important; max-width: 360px !important; }
+.otychat-doodle img { display: block !important; max-width: 380px !important; max-height: 280px !important; margin: 8px !important; }
+.otychat-doodle-text { font-size: 22px !important; padding: 0 12px 10px !important; max-width: 380px !important; }
 
 /* ============================================
    JOIN CARD
    ============================================ */
 
 .otychat-join {
-  position: absolute !important;
-  top: 32px !important;
-  left: 32px !important;
-  display: none !important;
-  align-items: center !important;
-  gap: 18px !important;
-  background: #ffffff !important;
-  border-radius: 24px !important;
-  padding: 18px 24px 18px 18px !important;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25) !important;
-  font-family: 'Fredoka', 'Nunito', system-ui, sans-serif !important;
-  color: #1f2937 !important;
-  pointer-events: none !important;
-  z-index: 999996 !important;
+  position: absolute !important; top: 32px !important; left: 32px !important;
+  display: none !important; align-items: center !important; gap: 18px !important;
+  background: #fff !important; border: 3px solid var(--ds-line) !important; box-shadow: 6px 6px 0 var(--ds-shadow) !important;
+  padding: 16px 24px 16px 16px !important;
+  font-family: var(--ds-font) !important; color: var(--ds-ink) !important;
+  pointer-events: none !important; z-index: 999996 !important;
 }
-
-.otychat-join.active {
-  display: flex !important;
-  animation: otychat-toast-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
-}
-
-.otychat-join-qr { width: 150px !important; height: 150px !important; flex-shrink: 0 !important; }
-.otychat-join-qr svg { width: 150px !important; height: 150px !important; display: block !important; }
-.otychat-join-title { font-size: 22px !important; font-weight: 700 !important; color: #8b5cf6 !important; }
-.otychat-join-url { font-size: 26px !important; font-weight: 700 !important; margin-top: 4px !important; word-break: break-all !important; max-width: 420px !important; }
-.otychat-join-count { font-size: 15px !important; color: #6b7280 !important; margin-top: 6px !important; }
+.otychat-join.active { display: flex !important; animation: otychat-toast-in 0.15s steps(3) !important; }
+.otychat-join-qr { width: 150px !important; height: 150px !important; flex-shrink: 0 !important; border: 2px solid var(--ds-line) !important; }
+.otychat-join-qr svg { width: 146px !important; height: 146px !important; display: block !important; }
+.otychat-join-title { font-size: 16px !important; letter-spacing: 2px !important; text-transform: uppercase !important; color: var(--ds-muted) !important; }
+.otychat-join-url { font-size: 30px !important; margin-top: 2px !important; word-break: break-all !important; max-width: 460px !important; }
+.otychat-join-count { font-size: 16px !important; color: var(--ds-muted) !important; margin-top: 6px !important; }
 
 /* ============================================
    POLL CARD
    ============================================ */
 
 .otychat-poll {
-  position: absolute !important;
-  top: 32px !important;
-  left: 32px !important;
-  width: 460px !important;
-  display: none !important;
-  background: #ffffff !important;
-  border-radius: 24px !important;
-  padding: 20px 24px !important;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25) !important;
-  border-left: 8px solid #3b82f6 !important;
-  font-family: 'Fredoka', 'Nunito', system-ui, sans-serif !important;
-  color: #1f2937 !important;
-  pointer-events: none !important;
-  z-index: 999996 !important;
+  position: absolute !important; top: 32px !important; left: 32px !important; width: 480px !important;
+  display: none !important; background: #fff !important; border: 3px solid var(--ds-line) !important; box-shadow: 6px 6px 0 var(--ds-shadow) !important;
+  font-family: var(--ds-font) !important; color: var(--ds-ink) !important;
+  pointer-events: none !important; z-index: 999996 !important;
 }
-
 .otychat-poll.active { display: block !important; }
-
-.otychat-poll-head { display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 8px !important; }
-.otychat-poll-badge {
-  display: inline-block !important;
-  padding: 4px 12px !important;
-  border-radius: 14px !important;
-  background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%) !important;
-  color: #fff !important;
-  font-size: 13px !important;
-  font-weight: 700 !important;
-}
-.otychat-poll-by { font-size: 13px !important; color: #6b7280 !important; }
-.otychat-poll-question { font-size: 24px !important; font-weight: 700 !important; margin-bottom: 14px !important; line-height: 1.3 !important; }
-
-.otychat-poll-option {
-  position: relative !important;
-  height: 40px !important;
-  border-radius: 12px !important;
-  background: #f3e8ff !important;
-  margin-bottom: 8px !important;
-  overflow: hidden !important;
-}
-.otychat-poll-option.winner { box-shadow: 0 0 0 3px #10b981 !important; }
-.otychat-poll-bar {
-  position: absolute !important;
-  left: 0 !important; top: 0 !important; bottom: 0 !important;
-  background: linear-gradient(90deg, #ec4899 0%, #8b5cf6 100%) !important;
-  opacity: 0.35 !important;
-  transition: width 0.4s ease !important;
-}
-.otychat-poll-label {
-  position: relative !important;
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  height: 100% !important;
-  padding: 0 14px !important;
-  font-size: 17px !important;
-  font-weight: 600 !important;
-}
-.otychat-poll-pct { font-weight: 700 !important; color: #8b5cf6 !important; }
-.otychat-poll-total { font-size: 13px !important; color: #6b7280 !important; margin-top: 4px !important; }
+.otychat-poll-head { background: var(--ds-blue) !important; color: #fff !important; padding: 6px 14px !important; display: flex !important; justify-content: space-between !important; align-items: center !important; font-size: 18px !important; border-bottom: 2px solid var(--ds-line) !important; }
+.otychat-poll-badge { font-size: 18px !important; letter-spacing: 1px !important; text-transform: uppercase !important; }
+.otychat-poll-by { font-size: 14px !important; opacity: 0.9 !important; }
+.otychat-poll-question { font-size: 26px !important; padding: 12px 14px 8px !important; line-height: 1.25 !important; }
+.otychat-poll-option { position: relative !important; margin: 0 14px 8px !important; height: 40px !important; border: 2px solid var(--ds-line) !important; background: var(--ds-key) !important; overflow: hidden !important; }
+.otychat-poll-option.winner { border-color: var(--ds-green) !important; box-shadow: 0 0 0 2px var(--ds-green) !important; }
+.otychat-poll-bar { position: absolute !important; left: 0 !important; top: 0 !important; bottom: 0 !important; background: var(--ds-blue) !important; opacity: 0.25 !important; transition: width 0.3s steps(6) !important; }
+.otychat-poll-label { position: relative !important; display: flex !important; justify-content: space-between !important; align-items: center !important; height: 100% !important; padding: 0 12px !important; font-size: 20px !important; }
+.otychat-poll-pct { color: var(--ds-blue) !important; }
+.otychat-poll-total { font-size: 14px !important; color: var(--ds-muted) !important; padding: 0 14px 10px !important; }
 
 /* ============================================
    AWARDS
    ============================================ */
 
-.otychat-award,
-.otychat-awards-summary {
-  position: absolute !important;
-  top: 50% !important;
-  left: 50% !important;
-  transform: translate(-50%, -50%) !important;
-  background: #ffffff !important;
-  border-radius: 36px !important;
-  padding: 40px 64px !important;
-  text-align: center !important;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3) !important;
-  border: 6px solid #fbbf24 !important;
-  font-family: 'Fredoka', 'Nunito', system-ui, sans-serif !important;
-  color: #1f2937 !important;
-  pointer-events: none !important;
-  z-index: 999998 !important;
-  animation: otychat-toast-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+.otychat-award, .otychat-awards-summary {
+  position: absolute !important; top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important;
+  background: #fff !important; border: 4px solid #c9931a !important; box-shadow: 8px 8px 0 var(--ds-shadow) !important;
+  padding: 32px 64px !important; text-align: center !important;
+  font-family: var(--ds-font) !important; color: var(--ds-ink) !important;
+  pointer-events: none !important; z-index: 999998 !important;
+  animation: otychat-toast-in 0.15s steps(3) !important;
   min-width: 480px !important;
 }
-
-.otychat-award-icon { font-size: 64px !important; }
-.otychat-award-title { font-size: 26px !important; font-weight: 700 !important; color: #f59e0b !important; letter-spacing: 1px !important; text-transform: uppercase !important; }
+.otychat-award-icon { font-size: 56px !important; line-height: 1 !important; }
+.otychat-award-title { font-size: 22px !important; color: #c9931a !important; letter-spacing: 3px !important; text-transform: uppercase !important; margin-top: 6px !important; }
 .otychat-award-pic {
-  width: 120px !important; height: 120px !important;
-  border-radius: 32px !important;
-  object-fit: cover !important;
-  margin: 16px auto 10px !important;
-  display: flex !important; align-items: center !important; justify-content: center !important;
-  background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%) !important;
-  box-shadow: 0 8px 24px rgba(236, 72, 153, 0.35) !important;
+  width: 112px !important; height: 112px !important; margin: 14px auto 8px !important;
+  border: 3px solid var(--ds-line) !important; background: var(--ds-key) !important;
+  display: flex !important; align-items: center !important; justify-content: center !important; object-fit: cover !important;
 }
-.otychat-award-pic.emoji { font-size: 64px !important; }
-.otychat-award-name { font-size: 48px !important; font-weight: 700 !important; }
-.otychat-award-sprite { width: 120px !important; height: 120px !important; image-rendering: pixelated !important; margin: 4px auto !important; display: block !important; }
-.otychat-award-detail { font-size: 24px !important; color: #6b7280 !important; margin-top: 8px !important; max-width: 640px !important; }
-.otychat-award-value { font-size: 22px !important; font-weight: 600 !important; color: #8b5cf6 !important; margin-top: 8px !important; }
+.otychat-award-pic.emoji { font-size: 60px !important; }
+.otychat-award-name { font-size: 48px !important; }
+.otychat-award-sprite { width: 112px !important; height: 112px !important; image-rendering: pixelated !important; margin: 4px auto !important; display: block !important; }
+.otychat-award-detail { font-size: 24px !important; color: var(--ds-muted) !important; margin-top: 8px !important; max-width: 640px !important; }
+.otychat-award-value { font-size: 22px !important; color: var(--ds-blue) !important; margin-top: 8px !important; }
 
-.otychat-awards-summary { padding: 32px 48px !important; }
-.otychat-awards-summary-title { font-size: 34px !important; font-weight: 700 !important; margin-bottom: 16px !important; }
-.otychat-awards-row { display: flex !important; align-items: center !important; gap: 14px !important; padding: 8px 0 !important; font-size: 22px !important; border-bottom: 1px solid #f3e8ff !important; text-align: left !important; }
-.otychat-awards-row-icon { font-size: 28px !important; }
-.otychat-awards-row-title { color: #6b7280 !important; font-weight: 600 !important; min-width: 220px !important; }
-.otychat-awards-row-name { font-weight: 700 !important; color: #8b5cf6 !important; }
-.otychat-awards-thanks { margin-top: 16px !important; font-size: 20px !important; color: #6b7280 !important; }
+.otychat-awards-summary { padding: 24px 40px !important; }
+.otychat-awards-summary-title { font-size: 32px !important; margin-bottom: 12px !important; }
+.otychat-awards-row { display: flex !important; align-items: center !important; gap: 14px !important; padding: 8px 0 !important; font-size: 22px !important; border-bottom: 2px dashed #c5ccd6 !important; text-align: left !important; }
+.otychat-awards-row-icon { font-size: 26px !important; }
+.otychat-awards-row-title { color: var(--ds-muted) !important; min-width: 240px !important; font-size: 18px !important; text-transform: uppercase !important; letter-spacing: 1px !important; }
+.otychat-awards-row-name { color: var(--ds-blue) !important; }
+.otychat-awards-thanks { margin-top: 14px !important; font-size: 20px !important; color: var(--ds-muted) !important; }
 
 /* ============================================
    STUNTS
    ============================================ */
 
 .otychat-confetti {
-  position: absolute !important;
-  top: -20px !important;
-  border-radius: 2px !important;
-  pointer-events: none !important;
-  opacity: 0.95 !important;
-  animation-name: otychat-confetti-fall !important;
-  animation-timing-function: linear !important;
-  animation-fill-mode: forwards !important;
+  position: absolute !important; top: -20px !important; pointer-events: none !important; opacity: 0.95 !important;
+  animation-name: otychat-confetti-fall !important; animation-timing-function: linear !important; animation-fill-mode: forwards !important;
   z-index: 999995 !important;
 }
-
 @keyframes otychat-confetti-fall {
   0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
   100% { transform: translate(var(--drift, 0px), 110vh) rotate(var(--spin, 720deg)); opacity: 0.6; }
 }
 
 .otychat-spotlight {
-  position: absolute !important;
-  top: 50% !important;
-  left: 50% !important;
-  transform: translate(-50%, -50%) !important;
-  min-width: 560px !important;
-  max-width: 900px !important;
-  padding: 44px 64px 40px !important;
-  background: #111827 !important;
-  border-radius: 28px !important;
-  border: 10px solid #fbbf24 !important;
-  box-shadow: 0 0 60px var(--glow, #ec4899), 0 24px 64px rgba(0, 0, 0, 0.5) !important;
-  text-align: center !important;
-  font-family: 'Fredoka', 'Nunito', system-ui, sans-serif !important;
-  color: #fff !important;
-  pointer-events: none !important;
-  z-index: 999998 !important;
-  animation: otychat-toast-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), otychat-fade-out 0.6s ease-in 9.3s forwards !important;
+  position: absolute !important; top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important;
+  min-width: 560px !important; max-width: 900px !important; padding: 40px 64px 36px !important;
+  background: #1f2937 !important; border: 8px solid #fbbf24 !important; box-shadow: 10px 10px 0 #7a5a0a, 0 0 0 4px var(--glow, #3b62c4) !important;
+  text-align: center !important; font-family: var(--ds-font) !important; color: #fff !important;
+  pointer-events: none !important; z-index: 999998 !important;
+  animation: otychat-toast-in 0.15s steps(3), otychat-fade-out 0.3s steps(3) 9.5s forwards !important;
 }
-
-.otychat-spotlight-bulbs {
-  position: absolute !important;
-  inset: -22px !important;
-  display: flex !important;
-  flex-wrap: wrap !important;
-  justify-content: space-between !important;
-  align-content: space-between !important;
-  pointer-events: none !important;
-}
-
-.otychat-bulb {
-  width: 14px !important;
-  height: 14px !important;
-  border-radius: 50% !important;
-  background: #fde68a !important;
-  box-shadow: 0 0 12px #fbbf24 !important;
-  animation: otychat-bulb-blink 0.8s steps(2) infinite !important;
-}
-.otychat-bulb:nth-child(odd) { animation-delay: 0.4s !important; }
-
-@keyframes otychat-bulb-blink {
-  from { opacity: 1; }
-  to { opacity: 0.25; }
-}
-
-.otychat-spotlight-label {
-  font-size: 18px !important;
-  letter-spacing: 4px !important;
-  text-transform: uppercase !important;
-  color: #fbbf24 !important;
-  font-weight: 600 !important;
-}
-.otychat-spotlight-name {
-  font-size: 84px !important;
-  font-weight: 700 !important;
-  line-height: 1.05 !important;
-  text-shadow: 0 0 24px var(--glow, #ec4899) !important;
-}
-.otychat-spotlight-message {
-  font-size: 28px !important;
-  margin-top: 10px !important;
-  color: #e5e7eb !important;
-}
+.otychat-spotlight-bulbs { position: absolute !important; inset: -20px !important; display: flex !important; flex-wrap: wrap !important; justify-content: space-between !important; align-content: space-between !important; pointer-events: none !important; }
+.otychat-bulb { width: 12px !important; height: 12px !important; background: #fde68a !important; border: 2px solid #1f2937 !important; animation: otychat-bulb-blink 0.6s steps(2) infinite !important; }
+.otychat-bulb:nth-child(odd) { animation-delay: 0.3s !important; }
+@keyframes otychat-bulb-blink { from { opacity: 1; } to { opacity: 0.3; } }
+.otychat-spotlight-label { font-size: 18px !important; letter-spacing: 4px !important; text-transform: uppercase !important; color: #fbbf24 !important; }
+.otychat-spotlight-name { font-size: 84px !important; line-height: 1.05 !important; color: var(--glow, #fff) !important; }
+.otychat-spotlight-message { font-size: 28px !important; margin-top: 10px !important; color: #e5e7eb !important; }
