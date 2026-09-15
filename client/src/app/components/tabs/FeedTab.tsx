@@ -9,11 +9,11 @@ const LEADERBOARD_TYPES = [
   { key: 'drinks', label: 'Drinks', icon: 'drink' },
 ] as const;
 
+// Drinks are a running count that never resets, so they only make sense all time
 const TONIGHT_TYPES = [
   { key: 'reactions', label: 'Hype', icon: 'fire' },
   { key: 'catches', label: 'Catches', icon: 'pokeball' },
   { key: 'messages', label: 'Messages', icon: 'chat' },
-  { key: 'drinks', label: 'Drinks', icon: 'drink' },
 ] as const;
 
 type BoardMode = 'tonight' | 'all';
@@ -95,12 +95,12 @@ export default function FeedTab() {
           </div>
         </Window>
 
-        {/* drinks tonight */}
-        <Window title="Drinks tonight" right={<span className="ds-small">{user?.odDrinksTotal || 0} all time</span>}>
+        {/* drinks: a running count across every room, never reset */}
+        <Window title="Drinks" right={<span className="ds-small">running total</span>}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ fontSize: 32, lineHeight: 1, minWidth: 44, textAlign: 'center' }}>{user?.odDrinksTonight || 0}</div>
+            <div style={{ fontSize: 32, lineHeight: 1, minWidth: 44, textAlign: 'center' }}>{user?.odDrinksTotal || 0}</div>
             <Key kind="primary" big icon="drink" onClick={logDrink} style={{ flex: 1 }}>+1 drink</Key>
-            <Key icon="minus" onClick={unlogDrink} disabled={!user?.odDrinksTonight} style={{ minHeight: 42 }}>undo</Key>
+            <Key icon="minus" onClick={unlogDrink} disabled={!user?.odDrinksTonight} style={{ minHeight: 42 }} title="Undo needs a drink logged in this room">undo</Key>
           </div>
         </Window>
 

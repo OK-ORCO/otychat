@@ -7,7 +7,7 @@ import StuntTray from '../StuntTray';
 import RoomControls from '../RoomControls';
 import { EmojiText } from '../EmojiText';
 import { getEmojiUrl } from '../../data/emoji-data';
-import { Bar, Note, Chip, Key, Window, Scrim, Icon, formatTime } from '../ds';
+import { Bar, Note, Doodle, Chip, Key, Window, Scrim, Icon, formatTime } from '../ds';
 
 interface ReactTabProps {
   username: string;
@@ -132,10 +132,8 @@ export default function ReactTab({ username, onOpenDM }: ReactTabProps) {
                 )}
               >
                 {item.odImageData && (
-                  <img
-                    className="doodle"
+                  <Doodle
                     src={item.odImageData}
-                    alt=""
                     onClick={() => setLightbox(item.odImageData || null)}
                     style={{ cursor: 'zoom-in', ...(item.odType === 'image' ? { maxHeight: 200 } : {}) }}
                   />

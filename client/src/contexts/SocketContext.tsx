@@ -1117,7 +1117,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setMyPollVote(null);
       setPollHistory(null);
       setAwards(null);
-      showNotice(`${data.by} opened ${data.name || 'a new room'}. Fresh chat, drinks reset.`, 'success');
+      showNotice(`${data.by} opened ${data.name || 'a new room'}. Fresh chat and queue.`, 'success');
     });
 
     setSocket(newSocket);

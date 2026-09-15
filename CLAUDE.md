@@ -295,7 +295,7 @@ The names below are the ones actually emitted. `npm test` exercises most of them
 |-------|---------|
 | `join` | `{ username, password }` |
 | `forgot-password` | `{ username, adminCode }` resets to a fresh temp password (passwords are scrypt-hashed, never readable) |
-| `start-new-night` | `{ adminCode, name? }` opens a new room: clears chat + queue, hides the display, resets tonight's drinks. Blank name → "Chat Room B", "C", ... |
+| `start-new-night` | `{ adminCode, name? }` opens a new room for the next presentation: clears chat + queue, hides the display. Drinks are a running total and never reset (the per-room `drinksTonight` still exists but nothing shows it). Blank name → "Chat Room B", "C", ... |
 | `rename-room` | `{ adminCode, name }` renames the open room without wiping anything |
 | `poll-create` / `poll-vote` / `poll-close` / `poll-clear` | `{ question, options[] }` / `{ option }` / `{ adminCode? }` (creator or host) |
 | `poll-history` | no payload; answered with `poll-history` (last 50 closed polls with votes, newest first) |

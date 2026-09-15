@@ -205,7 +205,7 @@ The "Fun" tab is a collection of interactive tools for the room.
 - **Poll**: anyone starts one (question + 2 to 6 options), everyone votes from their phone and can change their vote, results render live on the big screen. The creator (or the host with the party code) closes it; results linger a minute.
 - **Awards ceremony** (host, party code): the big screen plays tonight's winners one card at a time (Hype Machine, Top Catcher, Shiny of the Night, Best Question, Chatterbox, Most Loved, Last One Standing), then a summary. Every phone gets a full-screen sheet with its own wins highlighted.
 - "On the big screen" mirrors whatever the Slides overlay is currently showing from the question queue, with a Hide button. Anyone can hide it.
-- **Start a new night** (host, party code): wipes chat and queue, resets tonight's drinks.
+- **Open a new room** (host, party code): wipes chat and queue for the next presentation. Drinks never reset.
 
 The overlay also shows a **join card** (QR + URL + headcount) for 90 seconds when it connects, and the extension popup can toggle it.
 

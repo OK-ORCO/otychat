@@ -5,7 +5,7 @@ import { Window, Key, Field, Icon, formatTime } from './ds';
 
 /**
  * The room the chat lives in, plus the host's controls for it: rename it, or
- * open a fresh room (wipes chat and queue, resets tonight's drinks). Both need
+ * open a fresh room for the next presentation (wipes chat and queue). Both need
  * the party code. Used from the Chat tab's room sheet and the Fun tab.
  */
 export default function RoomControls({ onDone }: { onDone?: () => void }) {
@@ -70,7 +70,7 @@ export default function RoomControls({ onDone }: { onDone?: () => void }) {
           {confirmFresh ? (
             <div className="ds-field" style={{ background: 'var(--ds-yellow)', padding: 8, minHeight: 0 }}>
               <div style={{ marginBottom: 6 }}>
-                Open {name.trim() ? `"${name.trim()}"` : 'the next room'}? Chat and the queue are wiped and drinks reset. Pokemon, coins and DMs stay.
+                Open {name.trim() ? `"${name.trim()}"` : 'the next room'}? Chat and the queue are wiped. Drinks, Pokemon, coins and DMs stay.
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <Key style={{ flex: 1 }} onClick={() => setConfirmFresh(false)}>Keep this room</Key>

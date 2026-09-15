@@ -190,9 +190,10 @@ textarea.ds-field { padding: 8px 10px; resize: none; }
   background-image: linear-gradient(transparent 21px, var(--ds-rule) 21px, var(--ds-rule) 22px);
   background-size: 100% 22px; background-position: 0 3px;
 }
-.ds-note-body .txt { font-size: 15px; line-height: 22px; color: var(--ds-ink); word-break: break-word; }
+.ds-note-body .txt { font-size: 15px; line-height: 22px; color: var(--ds-ink); word-break: break-word; white-space: pre-wrap; }
 /* drawings are transparent PNGs drawn 1:1 over the note rules; the cap only touches tall photos */
 .ds-note-body img.doodle { display: block; max-width: 100%; max-height: 240px; height: auto; }
+.ds-note-body img.doodle[style*="height"] { max-height: none; object-fit: fill; }
 .ds-note-foot {
   display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
   border-top: 1px dashed #c5ccd6; padding: 3px 6px; font-size: 11px;

@@ -1166,8 +1166,9 @@ function getNightAwards(presentationId, startedAt) {
   return {
     reactions: top(`SELECT u.username, u.profile_pic, us.reactions AS value FROM user_stats us
       JOIN users u ON u.id = us.user_id WHERE us.presentation_id = ? ORDER BY us.reactions DESC LIMIT 1`, [presentationId]),
-    drinks: top(`SELECT u.username, u.profile_pic, us.drinks AS value FROM user_stats us
-      JOIN users u ON u.id = us.user_id WHERE us.presentation_id = ? ORDER BY us.drinks DESC LIMIT 1`, [presentationId]),
+    // Drinks never reset between rooms, so the award goes to the running total
+    drinks: top(`SELECT u.username, u.profile_pic, SUM(us.drinks) AS value FROM user_stats us
+      JOIN users u ON u.id = us.user_id GROUP BY us.user_id ORDER BY value DESC LIMIT 1`, []),
     catches: top(`SELECT u.username, u.profile_pic, COUNT(*) AS value FROM pokemon_caught pc
       JOIN users u ON u.id = pc.user_id WHERE pc.caught_at >= ? GROUP BY pc.user_id ORDER BY value DESC LIMIT 1`, [since]),
     shiny: top(`SELECT u.username, u.profile_pic, pc.pokemon_name AS detail, pc.pokemon_id FROM pokemon_caught pc

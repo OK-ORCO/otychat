@@ -99,6 +99,31 @@ export function Pic({ src, size = 40, style }: { src?: string | null; size?: num
   );
 }
 
+/** Composer canvas heights; a PNG this tall is handwriting, anything else is a photo. */
+const DOODLE_HEIGHTS = [176, 110];
+
+/**
+ * A drawing or photo inside a note. Handwriting is pinned to its natural height
+ * so its strokes stay on the note's rules, and so the notes below it never land
+ * on a fractional pixel (a scaled image would push everything under it half a
+ * pixel off the rules on a Retina screen).
+ */
+export function Doodle({ src, onClick, style }: { src: string; onClick?: () => void; style?: CSSProperties }) {
+  return (
+    <img
+      className="doodle"
+      src={src}
+      alt=""
+      onClick={onClick}
+      onLoad={(e) => {
+        const img = e.currentTarget;
+        if (DOODLE_HEIGHTS.includes(img.naturalHeight)) img.style.height = `${img.naturalHeight}px`;
+      }}
+      style={style}
+    />
+  );
+}
+
 /**
  * A PictoChat note. Colour is the sender's pen colour; the body sits on ruled
  * paper so typed text and handwriting share the same lines.
@@ -121,7 +146,7 @@ export function Note({ name, time, color, onName, image, text, foot, children }:
         : <div className="ds-note-tab">{tab}</div>}
       <div className="ds-note-main">
         <div className="ds-note-body">
-          {image && <img className="doodle" src={image} alt="" />}
+          {image && <Doodle src={image} />}
           {text && <div className="txt"><EmojiText text={text} /></div>}
           {children}
         </div>

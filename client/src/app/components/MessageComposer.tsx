@@ -2,6 +2,7 @@ import { useRef, useEffect, useLayoutEffect, useState } from 'react';
 import { Key, Icon } from './ds';
 import { EmojiWindow } from './EmojiPicker';
 import EmojiText from './EmojiText';
+import EmojiInput, { EmojiInputHandle } from './EmojiInput';
 
 interface MessageComposerProps {
   onSend: (data: { drawing?: string; text?: string; image?: string }) => void;
@@ -34,8 +35,7 @@ export default function MessageComposer({ onSend, onSendToQueue, placeholder = '
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const paperRef = useRef<HTMLDivElement>(null);
   const backingRef = useRef<HTMLCanvasElement | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const selRef = useRef({ start: 0, end: 0 });
+  const inputRef = useRef<EmojiInputHandle>(null);
   const lastPosRef = useRef<{ x: number; y: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isTyping, setIsTyping] = useState(true);
@@ -199,7 +199,6 @@ export default function MessageComposer({ onSend, onSendToQueue, placeholder = '
     const backing = backingRef.current;
     backing?.getContext('2d')?.clearRect(0, 0, backing.width, backing.height);
     setText('');
-    selRef.current = { start: 0, end: 0 };
     setHasDrawing(false);
     setAttachedImage(null);
     setImageError(null);
@@ -225,25 +224,10 @@ export default function MessageComposer({ onSend, onSendToQueue, placeholder = '
     handleClear();
   };
 
-  const rememberCaret = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
-    const ta = e.currentTarget;
-    selRef.current = { start: ta.selectionStart, end: ta.selectionEnd };
-  };
-
   const insertAtCaret = (s: string) => {
-    const { start, end } = selRef.current;
-    const at = Math.min(start, text.length);
-    const to = Math.min(Math.max(end, at), text.length);
-    setText(text.slice(0, at) + s + text.slice(to));
-    const pos = at + s.length;
-    selRef.current = { start: pos, end: pos };
     setShowEmoji(false);
-    requestAnimationFrame(() => {
-      const ta = textareaRef.current;
-      if (!ta) return;
-      ta.focus();
-      ta.setSelectionRange(pos, pos);
-    });
+    // The picker sits on a scrim; let it unmount before stealing focus back
+    requestAnimationFrame(() => inputRef.current?.insert(s));
   };
 
   const swatches = (style: React.CSSProperties) => PALETTE.map(c => (
@@ -310,22 +294,13 @@ export default function MessageComposer({ onSend, onSendToQueue, placeholder = '
             }}
           />
           {isTyping ? (
-            <textarea
-              ref={textareaRef}
+            <EmojiInput
+              ref={inputRef}
               value={text}
-              onChange={(e) => { setText(e.target.value); rememberCaret(e); }}
-              onSelect={rememberCaret}
-              onKeyUp={rememberCaret}
-              onClick={rememberCaret}
-              onBlur={rememberCaret}
+              onChange={setText}
               placeholder={placeholder}
               autoFocus
-              style={{
-                position: 'absolute', inset: 0, width: '100%', height: '100%',
-                background: 'transparent', border: 0, outline: 'none', resize: 'none',
-                fontFamily: 'inherit', fontSize: 15, lineHeight: `${RULE_GAP}px`, color: currentColor,
-                padding: `3px 8px 0`
-              }}
+              style={{ fontSize: 15, lineHeight: `${RULE_GAP}px`, color: currentColor, padding: '3px 8px 0' }}
             />
           ) : (
             !hasDrawing && (

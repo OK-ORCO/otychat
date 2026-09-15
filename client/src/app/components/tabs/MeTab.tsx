@@ -165,8 +165,7 @@ export default function MeTab({ username }: MeTabProps) {
           <Stat label="Reactions" value={user?.odReactions || 0} />
           <Stat label="Questions" value={user?.odQuestions || 0} />
           <Stat label="Drawings" value={user?.odDrawings || 0} />
-          <Stat label="Drinks tonight" value={user?.odDrinksTonight || 0} />
-          <Stat label="Drinks total" value={user?.odDrinksTotal || 0} />
+          <Stat label="Drinks" value={user?.odDrinksTotal || 0} />
           <Stat label="Pokémon caught" value={`${pokemonCaught} / 386`} />
         </Window>
 
