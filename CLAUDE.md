@@ -352,6 +352,7 @@ The names below are the ones actually emitted. `npm test` exercises most of them
 | `display-welcome` | `{ joinUrl, qrSvg, onlineCount }` on connect; the overlay shows a join card for 90s (popup button toggles it). Set `PUBLIC_URL` if the proxy hides the real host |
 | `poll-state` / `awards-ceremony` / `awards-end` | Poll card top-left; awards play one card every 6s then a summary |
 | `drawing-blast` | `{ username, text, drawing, type }` doodles and photos |
+| `kudos` / `drink-logged` | Small cards and toasts. The server also sends `pokemon-caught`, `level-up`, `achievement-unlocked` and `pokemon-spawn-wave` to displays, but the overlay deliberately ignores them: the game stays on the phones, the projector is for the presentation (Chase's call, 2026-09-15) |
 | `stunt` | `{ kind, username, userColor, message }` confetti, synthesised soundboard, or the name-in-lights banner |
 | `show-question` / `hide-question` | `{ id, username, text, drawing, votes }` / `{}` |
 | `popcorn-emergency-start` | `{ hostUsername, invitees: [{ username }] }` (only when sent to everyone) |

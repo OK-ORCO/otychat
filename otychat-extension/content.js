@@ -165,14 +165,11 @@
         updateQuestionVotes(data);
       });
 
-      // Social moments from the room
-      socket.on('pokemon-caught', (data) => showPokemonCaught(data));
-      socket.on('level-up', (data) => showLevelUp(data));
+      // Social moments from the room. The game (catches, level-ups, achievements,
+      // spawn waves) stays on the phones: the projector is for the presentation.
       socket.on('kudos', (data) => showKudos(data));
-      socket.on('achievement-unlocked', (data) => showToast('trophy', 'Achievement unlocked', `${data.username}: ${data.achievement}`, data.icon));
       socket.on('drink-logged', (data) => showToast('drink', 'Cheers', `${data.username} logged drink #${data.count}`));
       socket.on('drawing-blast', (data) => showDrawingBlast(data));
-      socket.on('pokemon-spawn-wave', () => showToast('pokeball', 'Wild Pokémon', 'Check your phones'));
       socket.on('stunt', (data) => runStunt(data));
 
       // Popcorn Emergency
@@ -370,7 +367,6 @@
   // ROOM MOMENTS (catches, level-ups, kudos, toasts, doodles)
   // ============================================
 
-  const SPRITE_BASE = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon';
 
   const ICON_PATHS = {
     trophy: 'M5 3 h8 v5 c0 2 -2 4 -4 4 c-2 0 -4 -2 -4 -4 z M5 4 H2 v2 c0 2 3 3 3 3 M13 4 h3 v2 c0 2 -3 3 -3 3 M9 12 v3 M6 15 h6',
@@ -455,27 +451,6 @@
     // A burst of achievements must not wallpaper the slide
     while (stack.children.length > 4) stack.firstChild.remove();
     setTimeout(() => toast.remove(), 4000);
-  }
-
-  function showPokemonCaught(data) {
-    const card = el('div', 'otychat-catch' + (data.isShiny ? ' shiny' : ''));
-    const img = el('img', 'otychat-catch-sprite');
-    img.src = `${SPRITE_BASE}/${data.isShiny ? 'shiny/' : ''}${data.pokemonId}.png`;
-    img.alt = '';
-    card.appendChild(img);
-    card.appendChild(el('div', 'otychat-catch-who', `${data.username} caught`));
-    card.appendChild(el('div', 'otychat-catch-name', data.pokemonName));
-    if (data.isShiny) card.appendChild(el('div', 'otychat-catch-shiny', 'SHINY'));
-    mount(card, 4000);
-  }
-
-  function showLevelUp(data) {
-    const card = el('div', 'otychat-levelup');
-    const stars = el('div', 'otychat-levelup-stars'); [0, 1, 2].forEach(() => stars.appendChild(svgIcon('star'))); card.appendChild(stars);
-    card.appendChild(el('div', 'otychat-levelup-title', 'LEVEL UP'));
-    card.appendChild(el('div', 'otychat-levelup-who', data.username));
-    card.appendChild(el('div', 'otychat-levelup-level', `Level ${data.level}`));
-    mount(card, 3000);
   }
 
   function showKudos(data) {
