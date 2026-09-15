@@ -3,6 +3,9 @@ import { useSocket } from '../../../contexts/SocketContext';
 import MessageComposer from '../MessageComposer';
 import UserProfile from '../UserProfile';
 import EmojiPicker from '../EmojiPicker';
+import StuntTray from '../StuntTray';
+import RoomControls from '../RoomControls';
+import { EmojiText } from '../EmojiText';
 import { getEmojiUrl } from '../../data/emoji-data';
 import { Bar, Note, Chip, Key, Window, Scrim, Icon, formatTime } from '../ds';
 
@@ -17,6 +20,7 @@ interface ReactTabProps {
 export default function ReactTab({ username, onOpenDM }: ReactTabProps) {
   const {
     user,
+    room,
     onlineCount,
     chatMessages,
     queueMessages,
@@ -33,6 +37,7 @@ export default function ReactTab({ username, onOpenDM }: ReactTabProps) {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [showQueue, setShowQueue] = useState(false);
+  const [showRoom, setShowRoom] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const feedRef = useRef<HTMLDivElement>(null);
 
@@ -71,7 +76,12 @@ export default function ReactTab({ username, onOpenDM }: ReactTabProps) {
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Bar
-        title="Chat Room A"
+        title={
+          <button onClick={() => setShowRoom(true)} title="Room" style={{ padding: 0, fontSize: 15, letterSpacing: 0.5 }}>
+            {room.name}
+            <Icon name="cog" size={13} />
+          </button>
+        }
         sub={`${onlineCount} in room`}
         right={
           <button onClick={() => setShowQueue(true)} title="Question queue">
@@ -82,9 +92,12 @@ export default function ReactTab({ username, onOpenDM }: ReactTabProps) {
       />
 
       {/* reaction strip */}
-      <div style={{ flex: 'none', padding: '4px 6px', background: 'var(--ds-panel)', borderBottom: '1px solid var(--ds-line)' }}>
+      <div style={{ flex: 'none', padding: '4px 6px', background: 'var(--ds-panel)', borderBottom: '2px solid var(--ds-line)' }}>
         <EmojiPicker onSelect={handleEmojiSelect} />
       </div>
+
+      {/* coin-sink stunts for the projector, folded away by default */}
+      <StuntTray />
 
       {/* top screen: notes */}
       <div ref={feedRef} className="ds-lcd ds-scroll" style={{ flex: 1, minHeight: 0, padding: '8px 8px 4px', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -127,7 +140,7 @@ export default function ReactTab({ username, onOpenDM }: ReactTabProps) {
                     style={{ cursor: 'zoom-in', ...(item.odType === 'image' ? { maxHeight: 200 } : {}) }}
                   />
                 )}
-                {item.odContent && <div className="txt" style={{ color: mine ? undefined : undefined }}>{item.odContent}</div>}
+                {item.odContent && <div className="txt"><EmojiText text={item.odContent} /></div>}
               </Note>
             );
           })
@@ -211,6 +224,12 @@ export default function ReactTab({ username, onOpenDM }: ReactTabProps) {
               )}
             </div>
           </Window>
+        </Scrim>
+      )}
+
+      {showRoom && (
+        <Scrim onClose={() => setShowRoom(false)}>
+          <RoomControls onDone={() => setShowRoom(false)} />
         </Scrim>
       )}
 

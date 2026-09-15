@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
+import PollHistory from './PollHistory';
 import { Window, Key, Chip, Field, Progress, Icon } from './ds';
 
 /**
@@ -9,6 +10,7 @@ import { Window, Key, Chip, Field, Progress, Icon } from './ds';
 export default function PollCard() {
   const { user, poll, myPollVote, createPoll, votePoll, closePoll, clearPoll } = useSocket();
   const [composing, setComposing] = useState(false);
+  const [history, setHistory] = useState(false);
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState<string[]>(['', '']);
 
@@ -31,11 +33,23 @@ export default function PollCard() {
     </span>
   );
 
+  const historyKey = (
+    <button onClick={() => setHistory(true)} style={{ background: 'none', border: 0, color: '#fff', padding: 0, display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+      <Icon name="clock" size={13} /> past polls
+    </button>
+  );
+
   return (
     <Window
       title={title}
-      right={poll ? <Chip kind={poll.closed ? undefined : 'live'}>{poll.closed ? 'closed' : 'live'}</Chip> : undefined}
+      right={
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {poll && <Chip kind={poll.closed ? undefined : 'live'}>{poll.closed ? 'closed' : 'live'}</Chip>}
+          {historyKey}
+        </span>
+      }
     >
+      {history && <PollHistory onClose={() => setHistory(false)} />}
       {poll ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div>

@@ -92,7 +92,7 @@ export default function PokemonTab() {
   }
 
   const resultTitleBg = catchResult
-    ? (catchResult.kind === 'caught' ? 'var(--ds-green)' : catchResult.fled ? 'var(--ds-red)' : 'var(--ds-panel)')
+    ? (catchResult.kind === 'caught' ? 'var(--ds-green)' : catchResult.fled ? 'var(--ds-red)' : 'var(--ds-title-grey)')
     : undefined;
   const resultTitleColor = catchResult && catchResult.kind !== 'caught' && !catchResult.fled ? 'var(--ds-ink)' : '#fff';
 

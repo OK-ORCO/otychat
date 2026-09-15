@@ -2,6 +2,8 @@ import { useState, ReactNode } from 'react';
 import { useSocket } from '../../../contexts/SocketContext';
 import { EmergencyHostStatus } from '../PopcornEmergency';
 import PollCard from '../PollCard';
+import RoomControls from '../RoomControls';
+import { loadPartyCode, savePartyCode } from '../../partyCode';
 import { Bar, Window, Key, Field, Row, Note, Icon } from '../ds';
 
 function Title({ icon, children }: { icon: string; children: ReactNode }) {
@@ -29,13 +31,11 @@ function CheckBox({ checked }: { checked: boolean }) {
 }
 
 export default function FunTab() {
-  const { user, onlineUsers, emergency, startEmergency, queueMessages, chatMessages, displayedMessageId, hideFromDisplay, startNewNight, startAwards, awards } = useSocket();
+  const { user, onlineUsers, emergency, startEmergency, queueMessages, chatMessages, displayedMessageId, hideFromDisplay, startAwards, awards } = useSocket();
   const [picking, setPicking] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [nightOpen, setNightOpen] = useState(false);
-  const [partyCode, setPartyCode] = useState('');
   const [awardsOpen, setAwardsOpen] = useState(false);
-  const [awardsCode, setAwardsCode] = useState('');
+  const [awardsCode, setAwardsCode] = useState(loadPartyCode);
 
   const others = onlineUsers.filter(u => u.odName !== user?.odName);
   const allSelected = others.length > 0 && others.every(u => selected.has(u.odName));
@@ -87,7 +87,7 @@ export default function FunTab() {
                     Nobody else is online right now.
                   </div>
                 ) : (
-                  <div className="ds-list" style={{ border: '1px solid var(--ds-line)', background: 'var(--ds-paper)' }}>
+                  <div className="ds-list" style={{ border: '2px solid var(--ds-line)', background: 'var(--ds-paper)' }}>
                     <Row onClick={toggleAll}>
                       <CheckBox checked={allSelected} />
                       <span className="ds-small" style={{ letterSpacing: 1 }}>SELECT ALL</span>
@@ -141,7 +141,7 @@ export default function FunTab() {
               />
               <Key
                 kind="primary"
-                onClick={() => { if (awardsCode.trim()) { startAwards(awardsCode.trim()); setAwardsOpen(false); setAwardsCode(''); } }}
+                onClick={() => { if (awardsCode.trim()) { savePartyCode(awardsCode.trim()); startAwards(awardsCode.trim()); setAwardsOpen(false); } }}
                 disabled={!awardsCode.trim()}
               >
                 Run it
@@ -166,32 +166,7 @@ export default function FunTab() {
           )}
         </Window>
 
-        <Window title={<Title icon="moon">Start a new night</Title>}>
-          <div className="ds-small ds-muted" style={{ marginBottom: 8 }}>
-            Clears the chat and queue and resets everyone's drinks for tonight. Pokemon, coins and DMs stay. Host only.
-          </div>
-          {!nightOpen ? (
-            <Key wide icon="key" onClick={() => setNightOpen(true)}>I am the host</Key>
-          ) : (
-            <div style={{ display: 'flex', gap: 6 }}>
-              <Field
-                type="text"
-                value={partyCode}
-                onChange={(e) => setPartyCode(e.target.value)}
-                placeholder="Party code"
-                autoCapitalize="none"
-                style={{ flex: 1, minWidth: 0 }}
-              />
-              <Key
-                kind="danger"
-                onClick={() => { if (partyCode.trim()) { startNewNight(partyCode.trim()); setNightOpen(false); setPartyCode(''); } }}
-                disabled={!partyCode.trim()}
-              >
-                Reset
-              </Key>
-            </div>
-          )}
-        </Window>
+        <RoomControls />
       </div>
     </div>
   );

@@ -53,6 +53,7 @@ const PATHS: Record<string, string> = {
   dots: 'M4 9 h1 M9 9 h1 M14 9 h1',
   edit: 'M11 3 l4 4 l-8 8 H3 v-4 z M9 5 l4 4',
   broom: 'M12 2 l4 4 l-6 6 l-4 -4 z M6 8 l-4 4 l2 4 l4 -2 l2 -2',
+  smile: 'M9 2 a7 7 0 1 1 0 14 a7 7 0 1 1 0 -14 M6 7 h1 M11 7 h1 M6 11 c1 1.5 5 1.5 6 0',
 };
 
 interface IconProps {

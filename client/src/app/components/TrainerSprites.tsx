@@ -184,7 +184,7 @@ export default function TrainerSprites({ onBack, onSelect, current }: TrainerSpr
         title="Trainer sprites"
       />
 
-      <div className="ds-scroll" style={{ flex: 'none', display: 'flex', gap: 6, padding: '6px 8px', overflowX: 'auto', background: 'var(--ds-panel)', borderBottom: '1px solid var(--ds-line)' }}>
+      <div className="ds-scroll" style={{ flex: 'none', display: 'flex', gap: 6, padding: '6px 8px', overflowX: 'auto', background: 'var(--ds-panel)', borderBottom: '2px solid var(--ds-line)' }}>
         {categories.map((category) => (
           <Key
             key={category}

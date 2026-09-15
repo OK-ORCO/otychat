@@ -64,7 +64,7 @@ export default function Pokedex({ caughtPokemon, onBack }: PokedexProps) {
         left={<button onClick={onBack} title="Back"><Icon name="back" size={16} /></button>}
       />
 
-      <div style={{ flex: 'none', display: 'flex', gap: 6, padding: '8px 10px', background: 'var(--ds-panel)', borderBottom: '1px solid var(--ds-line)' }}>
+      <div style={{ flex: 'none', display: 'flex', gap: 6, padding: '8px 10px', background: 'var(--ds-panel)', borderBottom: '2px solid var(--ds-line)' }}>
         {filters.map(f => (
           <Key
             key={f.id}

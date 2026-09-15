@@ -6,6 +6,8 @@ import { loadFavorites, saveFavorites, getEmojiUrl, CUSTOM_EMOJI_IDS, UNICODE_EM
 import { usePushNotifications } from '../../hooks/usePushNotifications';
 import { useSocket } from '../../contexts/SocketContext';
 import { Bar, Window, Key, Row, Pic, Scrim, Progress, Icon } from './ds';
+import { THEMES, SCREENS, applyTheme, applyScreen, loadTheme, loadScreen } from '../theme';
+import type { ThemeId, ScreenId } from '../theme';
 
 interface SettingsProps {
   onBack: () => void;
@@ -29,6 +31,11 @@ export default function Settings({ onBack, profilePic, onProfilePicChange, statu
   const [showProfilePicSelector, setShowProfilePicSelector] = useState(false);
   const [showStatusEditor, setShowStatusEditor] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [theme, setTheme] = useState<ThemeId>(loadTheme);
+  const [screen, setScreen] = useState<ScreenId>(loadScreen);
+
+  const pickTheme = (id: ThemeId) => { applyTheme(id); setTheme(id); };
+  const pickScreen = (id: ScreenId) => { applyScreen(id); setScreen(id); };
 
   useEffect(() => {
     setFavorites(loadFavorites());
@@ -99,6 +106,34 @@ export default function Settings({ onBack, profilePic, onProfilePicChange, statu
             >
               {isLoading ? 'Working' : isSubscribed ? 'Turn off' : 'Turn on'}
             </Key>
+          </div>
+        </Window>
+
+        <Window title="Theme">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+            {THEMES.map(t => (
+              <button
+                key={t.id}
+                type="button"
+                title={t.name}
+                className={`ds-swatch ${theme === t.id ? 'on' : ''}`}
+                style={{ width: 36, height: 28, background: t.swatch.bg, overflow: 'hidden' }}
+                onClick={() => pickTheme(t.id)}
+              >
+                <div style={{ width: '100%', height: '100%', background: t.swatch.bg }}>
+                  <div style={{ height: 8, background: t.swatch.accent }} />
+                </div>
+              </button>
+            ))}
+          </div>
+          <div style={{ marginBottom: 10 }}>{THEMES.find(t => t.id === theme)?.name}</div>
+          <div className="ds-small ds-muted" style={{ marginBottom: 6 }}>Screen</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {SCREENS.map(s => (
+              <Key key={s.id} on={screen === s.id} onClick={() => pickScreen(s.id)} style={{ flex: 1, padding: '0 4px' }}>
+                {s.name}
+              </Key>
+            ))}
           </div>
         </Window>
 

@@ -287,6 +287,37 @@ async function main() {
     await cleared;
   });
 
+  await test('closed polls land in the history with their final tally', async () => {
+    const history = waitFor(bob, 'poll-history');
+    bob.emit('poll-history');
+    const list = await history;
+    assert(Array.isArray(list) && list.length === 1, `history length ${list.length}`);
+    const [p] = list;
+    assert(p.question === 'Pizza or tacos?' && p.by === 'alice' && p.total === 1, JSON.stringify(p));
+    assert(p.options[0].count === 1 && p.options[1].count === 0, 'final tally kept');
+    assert(typeof p.closedAt === 'string' && p.closedAt.endsWith('Z'), `closedAt ${p.closedAt}`);
+    assert(typeof p.room === 'string' && p.room.length > 0, 'room name attached');
+  });
+
+  await test('the room has a name and the host can rename it', async () => {
+    const s = connect();
+    await waitFor(s, 'connect');
+    const state = waitFor(s, 'room-state');
+    s.emit('join', { username: 'bob', password: 'pw-b' });
+    const r = await state;
+    assert(r.name === 'Chat Room A' && r.id, `first room ${JSON.stringify(r)}`);
+    s.disconnect();
+
+    const denied = waitFor(alice, 'action-error', e => e.message === 'Wrong party code');
+    alice.emit('rename-room', { adminCode: 'nope', name: 'Popcorn Palace' });
+    await denied;
+    const renamed = waitFor(bob, 'room-state', x => x.name === 'Popcorn Palace');
+    const onDisplay = waitFor(display, 'room-state', x => x.name === 'Popcorn Palace');
+    alice.emit('rename-room', { adminCode: ADMIN_CODE, name: '  Popcorn   Palace  ' });
+    const [x] = await Promise.all([renamed, onDisplay]);
+    assert(x.id === r.id, 'rename keeps the same room');
+  });
+
   await test('photos reach the display like doodles', async () => {
     const blast = waitFor(display, 'drawing-blast', d => d.type === 'image');
     alice.emit('send-chat', { text: 'look', drawing: 'data:image/png;base64,iVBORw0KGgo=', type: 'image' });
@@ -612,9 +643,15 @@ async function main() {
     const bobChat = waitFor(bob, 'chat-sync', c => c.length === 0);
     const aliceStats = waitFor(alice, 'trainer-stats', s => s.drinksTonight === 0 && s.drinks >= 1);
     const hidden = waitFor(alice, 'display-question-changed', d => d.messageId === null);
+    const roomB = waitFor(bob, 'room-state', x => x.name === 'Chat Room B');
     alice.emit('start-new-night', { adminCode: ADMIN_CODE });
-    const [n] = await Promise.all([night, bobChat, aliceStats, hidden]);
-    assert(n.by === 'alice', 'announced by host');
+    const [n] = await Promise.all([night, bobChat, aliceStats, hidden, roomB]);
+    assert(n.by === 'alice' && n.name === 'Chat Room B', `announced ${JSON.stringify(n)}`);
+
+    // a named room
+    const named = waitFor(bob, 'room-state', x => x.name === 'Late Night');
+    alice.emit('start-new-night', { adminCode: ADMIN_CODE, name: 'Late Night' });
+    await named;
 
     // a fresh join sees an empty room
     const s = connect();

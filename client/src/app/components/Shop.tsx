@@ -25,16 +25,11 @@ const ITEM_LOOK: Record<string, { icon?: string; sprite?: string; description: s
   sun_stone: { sprite: STONE_SPRITES.sun, description: 'Evolve sun-loving Pokémon' },
   dragon_scale: { sprite: STONE_SPRITES.dragon, description: 'Evolve dragon-type Pokémon' },
   shiny_charm: { icon: 'sparkle', description: 'Double shiny encounter rate, forever' },
-  confetti: { icon: 'sparkle', description: 'Confetti all over the big screen' },
-  airhorn: { icon: 'megaphone', description: 'BWAAAAP on the projector' },
-  drumroll: { icon: 'dice', description: 'Build the tension' },
-  sad_trombone: { icon: 'moon', description: 'Wah wah wah waaah' },
-  rimshot: { icon: 'star', description: 'Ba dum tss' },
-  spotlight: { icon: 'eye', description: 'Your name in lights for 10 seconds, with a message' },
 };
 
-const CATEGORY_FOR_TYPE: Record<ShopItem['type'], { label: string; order: number }> = {
-  stunt: { label: 'Big screen', order: 0 },
+// Big-screen stunts are sold from the Chat tab (StuntTray), so the Poké Mart
+// only lists trainer goods.
+const CATEGORY_FOR_TYPE: Partial<Record<ShopItem['type'], { label: string; order: number }>> = {
   ball: { label: 'Poké Balls', order: 1 },
   effect: { label: 'Boosts', order: 2 },
   stone: { label: 'Evolution stones', order: 3 },
@@ -62,15 +57,15 @@ export default function Shop({ coins, onBack }: ShopProps) {
     buyItem(item.id);
   };
 
-  const categories = Object.entries(CATEGORY_FOR_TYPE)
+  const categories = (Object.entries(CATEGORY_FOR_TYPE) as [ShopItem['type'], { label: string; order: number }][])
     .sort((a, b) => a[1].order - b[1].order)
-    .map(([type, meta]) => ({ type: type as ShopItem['type'], ...meta, items: shopItems.filter(i => i.type === type) }))
+    .map(([type, meta]) => ({ type, ...meta, items: shopItems.filter(i => i.type === type) }))
     .filter(c => c.items.length > 0);
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Bar
-        title="Shop"
+        title="Poké Mart"
         sub={`${coins} coins`}
         left={<button onClick={onBack} title="Back"><Icon name="back" size={16} /></button>}
       />

@@ -61,7 +61,7 @@ function StatCell({ label, value, last }: { label: string; value: number | strin
 }
 
 export default function FeedTab() {
-  const { feed, user, leaderboards, onlineUsers } = useSocket();
+  const { feed, user, leaderboards, onlineUsers, logDrink, unlogDrink } = useSocket();
   const [activeLeaderboard, setActiveLeaderboard] = useState(0);
   const [mode, setMode] = useState<BoardMode>('tonight');
   const types = mode === 'tonight' ? TONIGHT_TYPES : LEADERBOARD_TYPES;
@@ -92,6 +92,15 @@ export default function FeedTab() {
             <StatCell label="level" value={user?.odTrainerLevel || 1} />
             <StatCell label="coins" value={user?.odCoins || 0} />
             <StatCell label="online" value={onlineUsers.length} last />
+          </div>
+        </Window>
+
+        {/* drinks tonight */}
+        <Window title="Drinks tonight" right={<span className="ds-small">{user?.odDrinksTotal || 0} all time</span>}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ fontSize: 32, lineHeight: 1, minWidth: 44, textAlign: 'center' }}>{user?.odDrinksTonight || 0}</div>
+            <Key kind="primary" big icon="drink" onClick={logDrink} style={{ flex: 1 }}>+1 drink</Key>
+            <Key icon="minus" onClick={unlogDrink} disabled={!user?.odDrinksTonight} style={{ minHeight: 42 }}>undo</Key>
           </div>
         </Window>
 

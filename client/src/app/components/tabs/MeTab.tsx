@@ -26,8 +26,6 @@ export default function MeTab({ username }: MeTabProps) {
   const {
     user,
     caughtPokemon,
-    logDrink,
-    unlogDrink,
     updateProfile,
     leave
   } = useSocket();
@@ -163,21 +161,11 @@ export default function MeTab({ username }: MeTabProps) {
           </div>
         </Window>
 
-        <Window title="Tonight">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ flex: 1 }}>
-              <div className="ds-small ds-muted">Drinks tonight</div>
-              <div style={{ fontSize: 28, lineHeight: 1.1 }}>{user?.odDrinksTonight || 0}</div>
-            </div>
-            <Key kind="primary" icon="drink" onClick={logDrink}>+1 drink</Key>
-            <Key icon="minus" onClick={unlogDrink}>undo</Key>
-          </div>
-        </Window>
-
         <Window title="Stats" pad={false}>
           <Stat label="Reactions" value={user?.odReactions || 0} />
           <Stat label="Questions" value={user?.odQuestions || 0} />
           <Stat label="Drawings" value={user?.odDrawings || 0} />
+          <Stat label="Drinks tonight" value={user?.odDrinksTonight || 0} />
           <Stat label="Drinks total" value={user?.odDrinksTotal || 0} />
           <Stat label="Pokémon caught" value={`${pokemonCaught} / 386`} />
         </Window>

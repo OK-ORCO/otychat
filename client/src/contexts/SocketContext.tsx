@@ -217,6 +217,23 @@ export interface PollState {
   createdAt: number;
 }
 
+export interface PollRecord {
+  id: string;
+  question: string;
+  options: { text: string; count: number }[];
+  total: number;
+  by: string;
+  room: string | null;
+  createdAt: string;
+  closedAt: string;
+}
+
+export interface RoomState {
+  id: number | null;
+  name: string;
+  startedAt: string | null;
+}
+
 export interface Award {
   key: string;
   icon: string;
@@ -295,19 +312,23 @@ interface SocketContextType {
   emergency: EmergencyState | null;
   poll: PollState | null;
   myPollVote: number | null;
+  pollHistory: PollRecord[] | null;
   awards: AwardsState | null;
+  room: RoomState;
 
   // Actions
   createPoll: (question: string, options: string[]) => void;
   votePoll: (option: number) => void;
   closePoll: (adminCode?: string) => void;
   clearPoll: (adminCode?: string) => void;
+  requestPollHistory: () => void;
   startAwards: (adminCode: string) => void;
   endAwards: (adminCode?: string) => void;
   dismissAwards: () => void;
   join: (username: string, password: string) => void;
   forgotPassword: (username: string, adminCode: string) => void;
-  startNewNight: (adminCode: string) => void;
+  startNewNight: (adminCode: string, name?: string) => void;
+  renameRoom: (adminCode: string, name: string) => void;
   clearJoinError: () => void;
   clearForgotPasswordResult: () => void;
   sendReaction: (emoji: string) => void;
@@ -395,7 +416,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [emergency, setEmergency] = useState<EmergencyState | null>(null);
   const [poll, setPoll] = useState<PollState | null>(null);
   const [myPollVote, setMyPollVote] = useState<number | null>(null);
+  const [pollHistory, setPollHistory] = useState<PollRecord[] | null>(null);
   const [awards, setAwards] = useState<AwardsState | null>(null);
+  const [room, setRoom] = useState<RoomState>({ id: null, name: 'Chat Room', startedAt: null });
   const [leaderboards, setLeaderboards] = useState<Leaderboards>({
     xp: [],
     pokemon: [],
@@ -1056,6 +1079,21 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setMyPollVote(data.option);
     });
 
+    newSocket.on('poll-history', (list: PollRecord[]) => {
+      setPollHistory(Array.isArray(list) ? list : []);
+    });
+
+    // ========== ROOM ==========
+
+    newSocket.on('room-state', (state: RoomState) => {
+      setRoom(prev => {
+        if (prev.id === state.id && prev.name !== state.name && prev.id !== null) {
+          showNotice(`The room is now called ${state.name}`, 'info');
+        }
+        return state;
+      });
+    });
+
     // ========== AWARDS ==========
 
     newSocket.on('awards-ceremony', (data: AwardsState) => {
@@ -1067,7 +1105,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
 
     // The host wiped the board for a fresh session
-    newSocket.on('new-night', (data: { by: string }) => {
+    newSocket.on('new-night', (data: { by: string; name?: string }) => {
       seenChatIds.current.clear();
       setChatMessages([]);
       setQueueMessages([]);
@@ -1077,8 +1115,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setCatchResult(null);
       setPoll(null);
       setMyPollVote(null);
+      setPollHistory(null);
       setAwards(null);
-      showNotice(`${data.by} started a new night. Fresh chat, drinks reset.`, 'success');
+      showNotice(`${data.by} opened ${data.name || 'a new room'}. Fresh chat, drinks reset.`, 'success');
     });
 
     setSocket(newSocket);
@@ -1150,8 +1189,16 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     }
   }, [socket]);
 
-  const startNewNight = useCallback((adminCode: string) => {
-    socket?.emit('start-new-night', { adminCode });
+  const startNewNight = useCallback((adminCode: string, name?: string) => {
+    socket?.emit('start-new-night', { adminCode, name });
+  }, [socket]);
+
+  const renameRoom = useCallback((adminCode: string, name: string) => {
+    socket?.emit('rename-room', { adminCode, name });
+  }, [socket]);
+
+  const requestPollHistory = useCallback(() => {
+    socket?.emit('poll-history');
   }, [socket]);
 
   const createPoll = useCallback((question: string, options: string[]) => {
@@ -1377,17 +1424,21 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       emergency,
       poll,
       myPollVote,
+      pollHistory,
       awards,
+      room,
       createPoll,
       votePoll,
       closePoll,
       clearPoll,
+      requestPollHistory,
       startAwards,
       endAwards,
       dismissAwards,
       join,
       forgotPassword,
       startNewNight,
+      renameRoom,
       clearJoinError,
       clearForgotPasswordResult,
       sendReaction,

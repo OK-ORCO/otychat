@@ -1,5 +1,6 @@
 import { ReactNode, ButtonHTMLAttributes, InputHTMLAttributes, CSSProperties } from 'react';
 import Icon from './Icons';
+import EmojiText from '../EmojiText';
 
 /*
   DS primitives. Every screen is built from these plus the classes in ds.css.
@@ -121,7 +122,7 @@ export function Note({ name, time, color, onName, image, text, foot, children }:
       <div className="ds-note-main">
         <div className="ds-note-body">
           {image && <img className="doodle" src={image} alt="" />}
-          {text && <div className="txt">{text}</div>}
+          {text && <div className="txt"><EmojiText text={text} /></div>}
           {children}
         </div>
         {foot && <div className="ds-note-foot">{foot}</div>}

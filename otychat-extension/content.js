@@ -57,7 +57,7 @@
       <div class="otychat-join" id="otychat-join">
         <div class="otychat-join-qr" id="otychat-join-qr"></div>
         <div class="otychat-join-text">
-          <div class="otychat-join-title">Join the party</div>
+          <div class="otychat-join-title" id="otychat-join-title">Join the party</div>
           <div class="otychat-join-url" id="otychat-join-url"></div>
           <div class="otychat-join-count" id="otychat-join-count"></div>
         </div>
@@ -128,6 +128,7 @@
       });
 
       socket.on('display-welcome', (data) => showJoinCard(data));
+      socket.on('room-state', (room) => setRoomName(room && room.name));
       socket.on('user-count', (count) => updateJoinCount(count));
       socket.on('poll-state', (state) => renderPoll(state));
       socket.on('awards-ceremony', (data) => runAwards(data));
@@ -336,7 +337,7 @@
     content.innerHTML = '';
     if (question.text) {
       const p = document.createElement('p');
-      p.textContent = question.text;
+      p.appendChild(emojiNodes(question.text));
       content.appendChild(p);
     }
     if (question.drawing) {
@@ -402,6 +403,25 @@
     if (className) node.className = className;
     if (text !== undefined) node.textContent = text;
     return node;
+  }
+
+  /** Text with `:<id>:` custom-emoji tokens becomes text nodes plus inline images. */
+  function emojiNodes(text) {
+    const frag = document.createDocumentFragment();
+    const re = /:(\d{17,20}):/g;
+    let last = 0;
+    let m;
+    while ((m = re.exec(text))) {
+      if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+      const img = document.createElement('img');
+      img.className = 'otychat-inline-emoji';
+      img.src = serverUrl + '/emojis/' + m[1] + '.png';
+      img.alt = '';
+      frag.appendChild(img);
+      last = re.lastIndex;
+    }
+    if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+    return frag;
   }
 
   function mount(node, lifetimeMs) {
@@ -478,7 +498,11 @@
       img.alt = '';
       card.appendChild(img);
     }
-    if (data.text) card.appendChild(el('div', 'otychat-doodle-text', data.text));
+    if (data.text) {
+      const t = el('div', 'otychat-doodle-text');
+      t.appendChild(emojiNodes(data.text));
+      card.appendChild(t);
+    }
     mount(card, 6000);
   }
 
@@ -723,9 +747,15 @@
     qr.innerHTML = joinInfo.qrSvg || '';
     document.getElementById('otychat-join-url').textContent = String(joinInfo.joinUrl || '').replace(/^https?:\/\//, '');
     updateJoinCount(joinInfo.onlineCount || 0);
+    if (joinInfo.room) setRoomName(joinInfo.room.name);
     card.classList.add('active');
     clearTimeout(joinHideTimer);
     joinHideTimer = setTimeout(hideJoinCard, JOIN_CARD_MS);
+  }
+
+  function setRoomName(name) {
+    const title = document.getElementById('otychat-join-title');
+    if (title) title.textContent = name ? 'Join ' + name : 'Join the party';
   }
 
   function hideJoinCard() {

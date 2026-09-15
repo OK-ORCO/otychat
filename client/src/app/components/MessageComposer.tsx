@@ -1,5 +1,7 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useLayoutEffect, useState } from 'react';
 import { Key, Icon } from './ds';
+import { EmojiWindow } from './EmojiPicker';
+import EmojiText from './EmojiText';
 
 interface MessageComposerProps {
   onSend: (data: { drawing?: string; text?: string; image?: string }) => void;
@@ -15,57 +17,96 @@ const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const PALETTE = ['#2a2f38', '#d1483c', '#3b62c4', '#2f9e5b', '#c9931a', '#9a4bc4', '#e26fb2', '#8a5a2b'];
 const BRUSH_SIZES = [2, 4, 8];
 
-const PAPER = '#ffffff';
-const RULE = '#b7d6f0';
+/** Ruled-paper pitch; the .ds-paper and .ds-note-body tiles in ds.css are the same 22px. */
 const RULE_GAP = 22;
+
+type PointerEv = React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>;
 
 /**
  * The bottom DS screen: ruled paper you draw or type on, a tool column on the
  * left, SEND / Q / CLEAR keys and the palette on the right.
+ *
+ * The canvas is transparent and sized 1:1 to the paper box, so the CSS rules
+ * show through while drawing and the exported PNG lines up with the note's
+ * rules once it is sent.
  */
 export default function MessageComposer({ onSend, onSendToQueue, placeholder = 'Write or draw here', compact = false, penColor }: MessageComposerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const paperRef = useRef<HTMLDivElement>(null);
+  const backingRef = useRef<HTMLCanvasElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const selRef = useRef({ start: 0, end: 0 });
   const lastPosRef = useRef<{ x: number; y: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isTyping, setIsTyping] = useState(false);
+  const [isTyping, setIsTyping] = useState(true);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentColor, setCurrentColor] = useState(penColor || PALETTE[0]);
   const [brushSize, setBrushSize] = useState(BRUSH_SIZES[1]);
   const [eraser, setEraser] = useState(false);
   const [text, setText] = useState('');
   const [hasDrawing, setHasDrawing] = useState(false);
+  const [showEmoji, setShowEmoji] = useState(false);
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
 
-  const width = 300;
   const height = compact ? 110 : 176;
 
   useEffect(() => {
     if (penColor) setCurrentColor(penColor);
   }, [penColor]);
 
-  const paintPaper = () => {
+  /**
+   * Match the bitmap to the paper box's rendered width (devicePixelRatio 1 keeps
+   * the pixel look). The backing canvas keeps the widest drawing so far, so a
+   * rotate, the keyboard opening, or a tab being hidden and shown again never
+   * wipes or crops the strokes.
+   */
+  const fitCanvas = () => {
     const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
-    ctx.fillStyle = PAPER;
-    ctx.fillRect(0, 0, width, height);
-    ctx.strokeStyle = RULE;
-    ctx.lineWidth = 1;
-    for (let y = RULE_GAP; y < height; y += RULE_GAP) {
-      ctx.beginPath();
-      ctx.moveTo(0, y + 0.5);
-      ctx.lineTo(width, y + 0.5);
-      ctx.stroke();
+    const paper = paperRef.current;
+    if (!canvas || !paper) return;
+    const w = Math.round(paper.clientWidth);
+    if (w === 0) return;
+    if (canvas.width === w && canvas.height === height) return;
+
+    let backing = backingRef.current;
+    if (!backing || backing.height !== height) {
+      backing = document.createElement('canvas');
+      backing.width = Math.max(canvas.width, w);
+      backing.height = height;
+      backingRef.current = backing;
+    } else if (backing.width < Math.max(canvas.width, w)) {
+      const grown = document.createElement('canvas');
+      grown.width = Math.max(canvas.width, w);
+      grown.height = height;
+      grown.getContext('2d')?.drawImage(backing, 0, 0);
+      backing = grown;
+      backingRef.current = backing;
     }
+    const bctx = backing.getContext('2d');
+    if (bctx) {
+      bctx.clearRect(0, 0, canvas.width, canvas.height);
+      bctx.drawImage(canvas, 0, 0);
+    }
+    canvas.width = w;
+    canvas.height = height;
+    canvas.getContext('2d')?.drawImage(backing, 0, 0);
   };
 
-  useEffect(() => {
-    paintPaper();
+  useLayoutEffect(() => {
+    fitCanvas();
+    const paper = paperRef.current;
+    if (paper && typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(fitCanvas);
+      ro.observe(paper);
+      return () => ro.disconnect();
+    }
+    window.addEventListener('resize', fitCanvas);
+    return () => window.removeEventListener('resize', fitCanvas);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compact, height]);
+  }, [height]);
 
-  const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+  const getCanvasCoords = (e: PointerEv) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
@@ -78,13 +119,24 @@ export default function MessageComposer({ onSend, onSendToQueue, placeholder = '
       clientX = e.clientX;
       clientY = e.clientY;
     }
-    return { x: ((clientX - rect.left) / rect.width) * width, y: ((clientY - rect.top) / rect.height) * height };
+    return {
+      x: ((clientX - rect.left) / rect.width) * canvas.width,
+      y: ((clientY - rect.top) / rect.height) * canvas.height
+    };
   };
 
-  const strokeStyle = () => (eraser ? PAPER : currentColor);
   const strokeWidth = () => (eraser ? brushSize * 3 : brushSize);
 
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+  /** Pen paints over; the eraser punches back to transparent. */
+  const ink = (ctx: CanvasRenderingContext2D, paint: () => void) => {
+    ctx.globalCompositeOperation = eraser ? 'destination-out' : 'source-over';
+    ctx.fillStyle = currentColor;
+    ctx.strokeStyle = currentColor;
+    paint();
+    ctx.globalCompositeOperation = 'source-over';
+  };
+
+  const startDrawing = (e: PointerEv) => {
     if (isTyping) return;
     if ('touches' in e) e.preventDefault();
     const coords = getCanvasCoords(e);
@@ -94,10 +146,11 @@ export default function MessageComposer({ onSend, onSendToQueue, placeholder = '
     lastPosRef.current = coords;
     const ctx = canvasRef.current?.getContext('2d');
     if (ctx) {
-      ctx.fillStyle = strokeStyle();
-      ctx.beginPath();
-      ctx.arc(coords.x, coords.y, strokeWidth() / 2, 0, Math.PI * 2);
-      ctx.fill();
+      ink(ctx, () => {
+        ctx.beginPath();
+        ctx.arc(coords.x, coords.y, strokeWidth() / 2, 0, Math.PI * 2);
+        ctx.fill();
+      });
     }
   };
 
@@ -106,7 +159,7 @@ export default function MessageComposer({ onSend, onSendToQueue, placeholder = '
     lastPosRef.current = null;
   };
 
-  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+  const draw = (e: PointerEv) => {
     if (!isDrawing || isTyping) return;
     if ('touches' in e) e.preventDefault();
     const ctx = canvasRef.current?.getContext('2d');
@@ -114,14 +167,15 @@ export default function MessageComposer({ onSend, onSendToQueue, placeholder = '
     if (!ctx || !coords) return;
     const last = lastPosRef.current;
     if (last) {
-      ctx.strokeStyle = strokeStyle();
-      ctx.lineWidth = strokeWidth();
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.beginPath();
-      ctx.moveTo(last.x, last.y);
-      ctx.lineTo(coords.x, coords.y);
-      ctx.stroke();
+      ink(ctx, () => {
+        ctx.lineWidth = strokeWidth();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(last.x, last.y);
+        ctx.lineTo(coords.x, coords.y);
+        ctx.stroke();
+      });
     }
     lastPosRef.current = coords;
   };
@@ -140,8 +194,12 @@ export default function MessageComposer({ onSend, onSendToQueue, placeholder = '
   };
 
   const handleClear = () => {
-    paintPaper();
+    const canvas = canvasRef.current;
+    canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+    const backing = backingRef.current;
+    backing?.getContext('2d')?.clearRect(0, 0, backing.width, backing.height);
     setText('');
+    selRef.current = { start: 0, end: 0 };
     setHasDrawing(false);
     setAttachedImage(null);
     setImageError(null);
@@ -159,15 +217,44 @@ export default function MessageComposer({ onSend, onSendToQueue, placeholder = '
     if (!hasContent) return;
     onSend(payload());
     handleClear();
-    setIsTyping(false);
   };
 
   const handleSendToQueue = () => {
     if (!hasContent || !onSendToQueue) return;
     onSendToQueue(payload());
     handleClear();
-    setIsTyping(false);
   };
+
+  const rememberCaret = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    const ta = e.currentTarget;
+    selRef.current = { start: ta.selectionStart, end: ta.selectionEnd };
+  };
+
+  const insertAtCaret = (s: string) => {
+    const { start, end } = selRef.current;
+    const at = Math.min(start, text.length);
+    const to = Math.min(Math.max(end, at), text.length);
+    setText(text.slice(0, at) + s + text.slice(to));
+    const pos = at + s.length;
+    selRef.current = { start: pos, end: pos };
+    setShowEmoji(false);
+    requestAnimationFrame(() => {
+      const ta = textareaRef.current;
+      if (!ta) return;
+      ta.focus();
+      ta.setSelectionRange(pos, pos);
+    });
+  };
+
+  const swatches = (style: React.CSSProperties) => PALETTE.map(c => (
+    <button
+      key={c}
+      className={`ds-swatch ${currentColor === c && !eraser ? 'on' : ''}`}
+      style={{ background: c, ...style }}
+      onClick={() => { setCurrentColor(c); setEraser(false); }}
+      title={c}
+    />
+  ));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -190,6 +277,7 @@ export default function MessageComposer({ onSend, onSendToQueue, placeholder = '
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 34, flex: 'none' }}>
           <Key sq on={!isTyping && !eraser} icon="pencil" title="Draw" onClick={() => { setIsTyping(false); setEraser(false); }} />
           <Key sq on={isTyping} icon="text" title="Type" onClick={() => { setIsTyping(true); setEraser(false); }} />
+          <Key sq on={showEmoji} icon="smile" title="Emoji" onClick={() => setShowEmoji(true)} disabled={!isTyping} />
           <Key sq on={eraser && !isTyping} icon="broom" title="Eraser" onClick={() => { setIsTyping(false); setEraser(true); }} disabled={isTyping} />
           <Key
             sq
@@ -203,11 +291,9 @@ export default function MessageComposer({ onSend, onSendToQueue, placeholder = '
         </div>
 
         {/* paper */}
-        <div className="ds-paper" style={{ flex: 1, minWidth: 0, height }}>
+        <div ref={paperRef} className="ds-paper" style={{ flex: 1, minWidth: 0, height, boxSizing: 'content-box' }}>
           <canvas
             ref={canvasRef}
-            width={width}
-            height={height}
             onMouseDown={startDrawing}
             onMouseMove={draw}
             onMouseUp={stopDrawing}
@@ -216,7 +302,7 @@ export default function MessageComposer({ onSend, onSendToQueue, placeholder = '
             onTouchMove={draw}
             onTouchEnd={stopDrawing}
             style={{
-              display: 'block', width: '100%', height: '100%',
+              display: 'block',
               touchAction: 'none',
               cursor: isTyping ? 'text' : 'crosshair',
               pointerEvents: isTyping ? 'none' : 'auto',
@@ -225,8 +311,13 @@ export default function MessageComposer({ onSend, onSendToQueue, placeholder = '
           />
           {isTyping ? (
             <textarea
+              ref={textareaRef}
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => { setText(e.target.value); rememberCaret(e); }}
+              onSelect={rememberCaret}
+              onKeyUp={rememberCaret}
+              onClick={rememberCaret}
+              onBlur={rememberCaret}
               placeholder={placeholder}
               autoFocus
               style={{
@@ -245,7 +336,7 @@ export default function MessageComposer({ onSend, onSendToQueue, placeholder = '
           )}
           {text && !isTyping && (
             <div style={{ position: 'absolute', left: 8, right: 8, bottom: 2, fontSize: 12, color: currentColor, background: 'rgba(255,255,255,0.85)', padding: '0 2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {text}
+              <EmojiText text={text} size={14} />
             </div>
           )}
         </div>
@@ -263,34 +354,26 @@ export default function MessageComposer({ onSend, onSendToQueue, placeholder = '
           )}
           <Key onClick={handleClear} title="Clear" style={{ fontSize: 12 }}>CLEAR</Key>
           {!compact && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 3, marginTop: 'auto' }}>
-              {PALETTE.map(c => (
-                <button
-                  key={c}
-                  className={`ds-swatch ${currentColor === c && !eraser ? 'on' : ''}`}
-                  style={{ background: c, width: '100%', height: 12 }}
-                  onClick={() => { setCurrentColor(c); setEraser(false); }}
-                  title={c}
-                />
-              ))}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 3, marginTop: 'auto', padding: 3, background: 'var(--ds-key)', border: '2px solid var(--ds-line)' }}>
+              {swatches({ width: '100%', height: 12 })}
             </div>
           )}
         </div>
       </div>
 
       {compact && (
-        <div style={{ display: 'flex', gap: 3 }}>
-          {PALETTE.map(c => (
-            <button
-              key={c}
-              className={`ds-swatch ${currentColor === c && !eraser ? 'on' : ''}`}
-              style={{ background: c, flex: 1, height: 12 }}
-              onClick={() => { setCurrentColor(c); setEraser(false); }}
-              title={c}
-            />
-          ))}
+        <div style={{ display: 'flex', gap: 3, alignItems: 'center', padding: 3, background: 'var(--ds-key)', border: '2px solid var(--ds-line)' }}>
+          {swatches({ flex: 1, height: 12 })}
           <Key sq icon="camera" title="Attach a photo" on={!!attachedImage} onClick={() => fileInputRef.current?.click()} style={{ width: 28, height: 20, minHeight: 0 }} iconSize={14} />
         </div>
+      )}
+
+      {showEmoji && (
+        <EmojiWindow
+          title="Emoji"
+          onSelect={(emoji, custom) => insertAtCaret(custom ? `:${emoji}:` : emoji)}
+          onClose={() => setShowEmoji(false)}
+        />
       )}
     </div>
   );

@@ -219,6 +219,18 @@ async function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_dm_from_user ON direct_messages(from_user_id);
     CREATE INDEX IF NOT EXISTS idx_dm_to_user ON direct_messages(to_user_id);
 
+    -- Finished polls, kept so the room can look back at them
+    CREATE TABLE IF NOT EXISTS polls (
+      id TEXT PRIMARY KEY,
+      presentation_id INTEGER,
+      question TEXT NOT NULL,
+      options TEXT NOT NULL,
+      total INTEGER DEFAULT 0,
+      by_username TEXT,
+      created_at DATETIME,
+      closed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     -- Persistent chat messages (not tied to presentations)
     CREATE TABLE IF NOT EXISTS chat_messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -315,7 +327,7 @@ async function initDatabase() {
 // SQLite's CURRENT_TIMESTAMP is UTC with no zone marker ("2026-09-14 20:05:07").
 // Browsers parse that as local time, which put chat times hours off. Hand out
 // ISO strings with an explicit Z instead.
-const TIMESTAMP_COLUMNS = /^(created|caught|sent|unlocked|started|ended|purchased)_at$/;
+const TIMESTAMP_COLUMNS = /^(created|caught|sent|unlocked|started|ended|purchased|closed)_at$/;
 const SQLITE_TS = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
 
 function normalizeRow(row) {
@@ -837,6 +849,54 @@ function getPresentation(id) {
   return queryOne(`SELECT * FROM presentations WHERE id = ?`, [id]);
 }
 
+function renamePresentation(id, name) {
+  return runSql(`UPDATE presentations SET name = ? WHERE id = ?`, [name, id]);
+}
+
+/** How many rooms have been opened so far; the default room name counts up from it. */
+function getPresentationCount() {
+  const row = queryOne(`SELECT COUNT(*) AS n FROM presentations`);
+  return row ? row.n : 0;
+}
+
+// ============================================
+// POLL HISTORY
+// ============================================
+
+function savePoll(poll) {
+  runSql(
+    `INSERT OR REPLACE INTO polls (id, presentation_id, question, options, total, by_username, created_at, closed_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+    [
+      poll.id,
+      poll.presentationId || null,
+      poll.question,
+      JSON.stringify(poll.options),
+      poll.total,
+      poll.by,
+      new Date(poll.createdAt).toISOString()
+    ]
+  );
+}
+
+function getPollHistory(limit = 50) {
+  return queryAll(
+    `SELECT p.*, pr.name AS room
+     FROM polls p LEFT JOIN presentations pr ON pr.id = p.presentation_id
+     ORDER BY p.closed_at DESC LIMIT ?`,
+    [limit]
+  ).map(row => ({
+    id: row.id,
+    question: row.question,
+    options: JSON.parse(row.options),
+    total: row.total,
+    by: row.by_username,
+    room: row.room,
+    createdAt: row.created_at,
+    closedAt: row.closed_at
+  }));
+}
+
 // ============================================
 // QUESTION FUNCTIONS
 // ============================================
@@ -1258,7 +1318,13 @@ module.exports = {
   clearQueue,
   clearChatMessages,
   getNightAwards,
-  getTonightLeaderboards
+  getTonightLeaderboards,
+
+  // Rooms and polls
+  renamePresentation,
+  getPresentationCount,
+  savePoll,
+  getPollHistory
 };
 
 // ============================================

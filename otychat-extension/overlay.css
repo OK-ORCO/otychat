@@ -446,6 +446,12 @@
 .otychat-doodle img { display: block !important; max-width: 380px !important; max-height: 280px !important; margin: 8px !important; }
 .otychat-doodle-text { font-size: 22px !important; padding: 0 12px 10px !important; max-width: 380px !important; }
 
+/* custom emoji typed into a question or doodle caption (.otychat-emoji is the floating reaction) */
+.otychat-inline-emoji {
+  height: 1.1em !important; width: auto !important; vertical-align: middle !important;
+  display: inline !important; image-rendering: pixelated;
+}
+
 /* ============================================
    JOIN CARD
    ============================================ */

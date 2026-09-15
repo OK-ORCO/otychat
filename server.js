@@ -456,11 +456,49 @@ function broadcastPoll() {
   io.emit('poll-state', state);
 }
 
+/** Write the poll's final tally to the history table, once. */
+function archivePoll() {
+  if (!activePoll || activePoll.archived) return;
+  const state = pollPublicState();
+  if (state.total === 0) return;
+  db.savePoll({ ...state, presentationId: currentPresentation ? currentPresentation.id : null });
+  activePoll.archived = true;
+}
+
 function clearPoll() {
   if (!activePoll) return;
+  archivePoll();
   clearTimeout(activePoll.lingerTimer);
   activePoll = null;
   io.emit('poll-state', null);
+}
+
+// ----------------------------------------
+// ROOM (the open presentation, shown as the chat room name)
+// ----------------------------------------
+
+const ROOM_NAME_MAX = 32;
+
+/** "Chat Room A", "Chat Room B", ... counting every room ever opened. */
+function nextRoomName() {
+  const n = db.getPresentationCount();
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const letter = letters[n % letters.length];
+  const lap = Math.floor(n / letters.length);
+  return `Chat Room ${letter}${lap > 0 ? lap + 1 : ''}`;
+}
+
+function cleanRoomName(name) {
+  return String(name || '').replace(/\s+/g, ' ').trim().slice(0, ROOM_NAME_MAX);
+}
+
+function roomPayload() {
+  if (!currentPresentation) return { id: null, name: 'Chat Room', startedAt: null };
+  return { id: currentPresentation.id, name: currentPresentation.name, startedAt: currentPresentation.started_at };
+}
+
+function broadcastRoom() {
+  io.emit('room-state', roomPayload());
 }
 
 const AWARD_DEFS = [
@@ -997,6 +1035,9 @@ io.on('connection', (socket) => {
     // What the Slides overlay is showing right now
     socket.emit('display-question-changed', { messageId: displayedMessageId });
 
+    // Which room this is
+    socket.emit('room-state', roomPayload());
+
     // Poll and awards in progress
     if (activePoll) {
       socket.emit('poll-state', pollPublicState());
@@ -1064,9 +1105,9 @@ io.on('connection', (socket) => {
     const joinUrl = publicUrlFor(socket.handshake.headers);
     try {
       const qrSvg = await QRCode.toString(joinUrl, { type: 'svg', margin: 1, color: { dark: '#1f2937', light: '#ffffff' } });
-      socket.emit('display-welcome', { joinUrl, qrSvg, onlineCount: getOnlineCount() });
+      socket.emit('display-welcome', { joinUrl, qrSvg, onlineCount: getOnlineCount(), room: roomPayload() });
     } catch (err) {
-      socket.emit('display-welcome', { joinUrl, qrSvg: null, onlineCount: getOnlineCount() });
+      socket.emit('display-welcome', { joinUrl, qrSvg: null, onlineCount: getOnlineCount(), room: roomPayload() });
     }
 
     // Catch the display up on anything in flight
@@ -1809,6 +1850,7 @@ io.on('connection', (socket) => {
       return;
     }
     activePoll.closed = true;
+    archivePoll();
     broadcastPoll();
     activePoll.lingerTimer = setTimeout(clearPoll, POLL_LINGER_MS);
     console.log(`[Poll] closed: "${activePoll.question}"`);
@@ -1818,6 +1860,32 @@ io.on('connection', (socket) => {
     if (!socket.data.userId || !activePoll) return;
     if (activePoll.by !== socket.data.username && adminCode !== ADMIN_CODE) return;
     clearPoll();
+  });
+
+  socket.on('poll-history', () => {
+    if (!socket.data.userId) return;
+    socket.emit('poll-history', db.getPollHistory(50));
+  });
+
+  // ----------------------------------------
+  // ROOM CONTROLS (host only, via party code)
+  // ----------------------------------------
+
+  socket.on('rename-room', ({ adminCode, name } = {}) => {
+    if (!socket.data.userId || !currentPresentation) return;
+    if (adminCode !== ADMIN_CODE) {
+      socket.emit('action-error', { message: 'Wrong party code' });
+      return;
+    }
+    const clean = cleanRoomName(name);
+    if (!clean) {
+      socket.emit('action-error', { message: 'The room needs a name' });
+      return;
+    }
+    db.renamePresentation(currentPresentation.id, clean);
+    currentPresentation = db.getPresentation(currentPresentation.id);
+    broadcastRoom();
+    console.log(`[Room] ${socket.data.username} renamed the room to "${clean}"`);
   });
 
   // ----------------------------------------
@@ -1851,7 +1919,7 @@ io.on('connection', (socket) => {
   // NEW NIGHT (host only, via party code)
   // ----------------------------------------
 
-  socket.on('start-new-night', ({ adminCode } = {}) => {
+  socket.on('start-new-night', ({ adminCode, name } = {}) => {
     if (!socket.data.userId) return;
     if (adminCode !== ADMIN_CODE) {
       socket.emit('action-error', { message: 'Wrong party code' });
@@ -1859,7 +1927,7 @@ io.on('connection', (socket) => {
     }
 
     if (currentPresentation) db.endPresentation(currentPresentation.id);
-    currentPresentation = db.startPresentation('Hangout');
+    currentPresentation = db.startPresentation(cleanRoomName(name) || nextRoomName());
     db.clearQueue();
     db.clearChatMessages();
     hideDisplayedQuestion();
@@ -1871,7 +1939,8 @@ io.on('connection', (socket) => {
     userSpawns.clear();
     catchAttempts.clear();
 
-    io.emit('new-night', { by: socket.data.username, presentationId: currentPresentation.id });
+    io.emit('new-night', { by: socket.data.username, presentationId: currentPresentation.id, name: currentPresentation.name });
+    broadcastRoom();
     connectedUsers.forEach((data, socketId) => {
       const s = io.sockets.sockets.get(socketId);
       if (!s || !s.data.userId) return;
@@ -2335,8 +2404,8 @@ async function startServer() {
     if (currentPresentation) {
       console.log(`[Server] Resuming presentation: ${currentPresentation.id}`);
     } else {
-      currentPresentation = db.startPresentation('Hangout');
-      console.log(`[Server] Started presentation: ${currentPresentation.id}`);
+      currentPresentation = db.startPresentation(nextRoomName());
+      console.log(`[Server] Started presentation: ${currentPresentation.id} (${currentPresentation.name})`);
     }
     pokemon.startAutoSpawn(() => {
       triggerGlobalSpawn();

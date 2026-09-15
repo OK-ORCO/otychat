@@ -295,8 +295,10 @@ The names below are the ones actually emitted. `npm test` exercises most of them
 |-------|---------|
 | `join` | `{ username, password }` |
 | `forgot-password` | `{ username, adminCode }` resets to a fresh temp password (passwords are scrypt-hashed, never readable) |
-| `start-new-night` | `{ adminCode }` ends the session: clears chat + queue, hides the display, resets tonight's drinks |
+| `start-new-night` | `{ adminCode, name? }` opens a new room: clears chat + queue, hides the display, resets tonight's drinks. Blank name → "Chat Room B", "C", ... |
+| `rename-room` | `{ adminCode, name }` renames the open room without wiping anything |
 | `poll-create` / `poll-vote` / `poll-close` / `poll-clear` | `{ question, options[] }` / `{ option }` / `{ adminCode? }` (creator or host) |
+| `poll-history` | no payload; answered with `poll-history` (last 50 closed polls with votes, newest first) |
 | `start-awards` / `end-awards` | `{ adminCode }` runs tonight's awards on every phone and the display |
 | `send-emoji` | `{ emoji }` |
 | `send-chat` / `send-to-queue` | `{ text?, drawing?, type }` |
@@ -336,8 +338,10 @@ The names below are the ones actually emitted. `npm test` exercises most of them
 | `popcorn-emergency-invite` | `{ emergencyId, hostUsername, invitees, expiresAt }` |
 | `popcorn-emergency-status` | Host's live view of the emergency |
 | `popcorn-emergency-response` / `popcorn-emergency-ended` / `popcorn-emergency-error` | |
-| `new-night` / `action-error` | `{ by }` board wiped by the host / `{ message }` for refused host actions |
+| `new-night` / `action-error` | `{ by, name }` board wiped by the host / `{ message }` for refused host actions |
+| `room-state` | `{ id, name, startedAt }` the open room (= presentation); sent on join, to the display, and on rename / new night |
 | `poll-state` / `poll-my-vote` | Full poll with counts (or `null` when cleared) / your own vote index |
+| `poll-history` | `[{ id, question, options[{text,count}], total, by, room, createdAt, closedAt }]` from the `polls` table |
 | `awards-ceremony` / `awards-end` | `{ awards[], by }` (each: key, icon, title, username, profilePic, value, label, detail, sprite) |
 | `evolvable-data` | Caught Pokemon that can evolve right now, with options; sent with `pokedex-data` |
 
