@@ -25,30 +25,33 @@ function formatSeconds(s: number) {
 }
 
 /**
- * Two-tone siren synthesised on the spot, so there is no audio file to ship.
- * Browsers only allow this after the user has touched the page, which anyone
- * who has tapped a tab already has.
+ * A short DS-style chime, synthesised on the spot so there is no audio file to
+ * ship: three rising notes, played twice, soft triangle wave. Browsers only
+ * allow this after the user has touched the page, which anyone who has tapped
+ * a tab already has.
  */
 function playAlarm() {
   try {
     const Ctx = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctx) return;
     const ctx = new Ctx();
-    const gain = ctx.createGain();
-    gain.gain.value = 0.15;
-    gain.connect(ctx.destination);
-    const osc = ctx.createOscillator();
-    osc.type = 'square';
-    osc.connect(gain);
-    const t0 = ctx.currentTime;
-    for (let i = 0; i < 6; i++) {
-      osc.frequency.setValueAtTime(i % 2 === 0 ? 880 : 660, t0 + i * 0.25);
-    }
-    gain.gain.setValueAtTime(0.15, t0 + 1.4);
-    gain.gain.linearRampToValueAtTime(0, t0 + 1.6);
-    osc.start(t0);
-    osc.stop(t0 + 1.6);
-    osc.onended = () => ctx.close();
+    const notes = [523.25, 659.25, 783.99, 523.25, 659.25, 783.99];
+    const step = 0.16;
+    notes.forEach((freq, i) => {
+      const t = ctx.currentTime + i * step + (i >= 3 ? 0.12 : 0);
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.12, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + step);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + step);
+    });
+    setTimeout(() => ctx.close(), 1500);
   } catch {
     // Audio is a nicety; never let it break the modal
   }

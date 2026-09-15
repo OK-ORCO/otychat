@@ -34,6 +34,9 @@ export default function FunTab() {
   const { user, onlineUsers, emergency, startEmergency, queueMessages, chatMessages, displayedMessageId, hideFromDisplay, startAwards, awards } = useSocket();
   const [picking, setPicking] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Only an explicit SELECT ALL takes over the big screen; picking the one
+  // other person online is not "everyone"
+  const [everyone, setEveryone] = useState(false);
   const [awardsOpen, setAwardsOpen] = useState(false);
   const [awardsCode, setAwardsCode] = useState(loadPartyCode);
 
@@ -47,9 +50,11 @@ export default function FunTab() {
 
   const toggleAll = () => {
     setSelected(allSelected ? new Set() : new Set(others.map(u => u.odName)));
+    setEveryone(!allSelected);
   };
 
   const toggle = (name: string) => {
+    setEveryone(false);
     setSelected(prev => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name); else next.add(name);
@@ -57,11 +62,14 @@ export default function FunTab() {
     });
   };
 
+  const takeover = everyone && allSelected;
+
   const send = () => {
     if (selected.size === 0) return;
-    startEmergency(allSelected ? 'all' : Array.from(selected));
+    startEmergency(takeover ? 'all' : Array.from(selected));
     setPicking(false);
     setSelected(new Set());
+    setEveryone(false);
   };
 
   return (
@@ -101,16 +109,16 @@ export default function FunTab() {
                   </div>
                 )}
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <Key style={{ flex: 1 }} onClick={() => { setPicking(false); setSelected(new Set()); }}>Cancel</Key>
+                  <Key style={{ flex: 1 }} onClick={() => { setPicking(false); setSelected(new Set()); setEveryone(false); }}>Cancel</Key>
                   <Key kind="primary" style={{ flex: 1 }} icon="megaphone" onClick={send} disabled={selected.size === 0}>
-                    Send{selected.size > 0 ? ` (${allSelected ? 'everyone' : selected.size})` : ''}
+                    Send{selected.size > 0 ? ` (${takeover ? 'everyone' : selected.size})` : ''}
                   </Key>
                 </div>
-                {allSelected && (
-                  <div className="ds-small ds-muted" style={{ textAlign: 'center' }}>
-                    Sending to everyone also takes over the big screen.
-                  </div>
-                )}
+                <div className="ds-small ds-muted" style={{ textAlign: 'center' }}>
+                  {takeover
+                    ? 'Everyone means the big screen gets taken over too.'
+                    : 'Only the phones you pick get the alarm. SELECT ALL also takes over the big screen.'}
+                </div>
               </div>
             )}
           </Window>

@@ -513,9 +513,9 @@ const SHINY_CHANCE = 100;       // 1 in 100 (1%)
 const SHINY_CHARM_CHANCE = 50;  // 1 in 50 (2%)
 
 // Timing
-const MIN_SPAWN_INTERVAL = 3 * 60 * 1000;  // 3 minutes
-const MAX_SPAWN_INTERVAL = 8 * 60 * 1000;  // 8 minutes
-const CATCH_WINDOW = 30 * 1000;            // 30 seconds
+const MIN_SPAWN_INTERVAL = 2 * 60 * 1000;  // 2 minutes
+const MAX_SPAWN_INTERVAL = 5 * 60 * 1000;  // 5 minutes
+const CATCH_WINDOW = 60 * 1000;            // 60 seconds
 const QUICK_CATCH_WINDOW = 5 * 1000;       // 5 seconds for bonus
 
 // ============================================

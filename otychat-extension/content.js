@@ -78,6 +78,7 @@
           <div class="responders" id="popcorn-responders"></div>
         </div>
         <div class="emergency-bars bottom"></div>
+        <div class="popcorn-dismiss">click anywhere to clear the screen</div>
         <div class="popcorn-kernels" id="popcorn-kernels"></div>
       </div>
     `;
@@ -474,7 +475,7 @@
     card.appendChild(el('div', 'otychat-levelup-title', 'LEVEL UP'));
     card.appendChild(el('div', 'otychat-levelup-who', data.username));
     card.appendChild(el('div', 'otychat-levelup-level', `Level ${data.level}`));
-    mount(card, 4000);
+    mount(card, 3000);
   }
 
   function showKudos(data) {
@@ -808,6 +809,17 @@
     });
     card.appendChild(el('div', 'otychat-poll-total', `${total} vote${total === 1 ? '' : 's'} · vote from your phone`));
     card.classList.add('active');
+    restPoll(card, state.closed ? POLL_REST_CLOSED_MS : POLL_REST_MS);
+  }
+
+  // A poll nobody is voting on dims so it stops fighting the slide; a vote wakes it
+  const POLL_REST_MS = 20 * 1000;
+  const POLL_REST_CLOSED_MS = 12 * 1000;
+  let pollRestTimer = null;
+  function restPoll(card, delay) {
+    clearTimeout(pollRestTimer);
+    card.classList.remove('resting');
+    pollRestTimer = setTimeout(() => card.classList.add('resting'), delay);
   }
 
   // ============================================
@@ -902,26 +914,29 @@
   let popcornResponders = {};
   let popcornKernelInterval = null;
 
+  // Same chime the phones play: three rising notes twice, soft triangle wave
   function playAlarm() {
     try {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return;
       const ctx = new Ctx();
-      const gain = ctx.createGain();
-      gain.gain.value = 0.2;
-      gain.connect(ctx.destination);
-      const osc = ctx.createOscillator();
-      osc.type = 'square';
-      osc.connect(gain);
-      const t0 = ctx.currentTime;
-      for (let i = 0; i < 8; i++) {
-        osc.frequency.setValueAtTime(i % 2 === 0 ? 880 : 660, t0 + i * 0.25);
-      }
-      gain.gain.setValueAtTime(0.2, t0 + 1.9);
-      gain.gain.linearRampToValueAtTime(0, t0 + 2.1);
-      osc.start(t0);
-      osc.stop(t0 + 2.1);
-      osc.onended = () => ctx.close();
+      const notes = [523.25, 659.25, 783.99, 523.25, 659.25, 783.99];
+      const step = 0.16;
+      notes.forEach((freq, i) => {
+        const t = ctx.currentTime + i * step + (i >= 3 ? 0.12 : 0);
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(0.15, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + step);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + step);
+      });
+      setTimeout(() => ctx.close(), 1500);
     } catch (err) {
       // Presenter may not have interacted with the page yet; the takeover still shows
     }
@@ -930,6 +945,8 @@
   function showPopcornEmergency(data) {
     playAlarm();
     const container = document.getElementById('otychat-popcorn-emergency');
+    // The presenter can wave it off the projector; the phones keep their alarm
+    container.onclick = () => hidePopcornEmergency();
     const hostEl = document.getElementById('popcorn-host');
     const respondersEl = document.getElementById('popcorn-responders');
 

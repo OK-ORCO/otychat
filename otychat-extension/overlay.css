@@ -556,3 +556,30 @@
 .otychat-spotlight-label { font-size: 18px !important; letter-spacing: 4px !important; text-transform: uppercase !important; color: #fbbf24 !important; }
 .otychat-spotlight-name { font-size: 84px !important; line-height: 1.05 !important; color: var(--glow, #fff) !important; }
 .otychat-spotlight-message { font-size: 28px !important; margin-top: 10px !important; color: #e5e7eb !important; }
+
+/* ---- round 7: quieter big-screen moments ---- */
+.otychat-levelup {
+  min-width: 260px !important; padding: 16px 32px !important;
+  top: 22% !important; transform: translate(-50%, -50%) !important;
+  animation-duration: 3s !important;
+}
+.otychat-levelup-stars svg { width: 22px !important; height: 22px !important; }
+.otychat-levelup-title { font-size: 26px !important; letter-spacing: 3px !important; }
+.otychat-levelup-who { font-size: 22px !important; }
+.otychat-levelup-level { font-size: 16px !important; }
+
+.otychat-poll { width: 380px !important; transition: opacity 0.6s steps(4) !important; }
+.otychat-poll.resting { opacity: 0.35 !important; }
+.otychat-poll-head { font-size: 15px !important; padding: 4px 12px !important; }
+.otychat-poll-badge { font-size: 15px !important; }
+.otychat-poll-question { font-size: 21px !important; padding: 10px 12px 6px !important; }
+.otychat-poll-option { height: 32px !important; margin: 0 12px 6px !important; }
+.otychat-poll-label { font-size: 16px !important; padding: 0 10px !important; }
+.otychat-poll-total { font-size: 13px !important; padding: 0 12px 8px !important; }
+
+.popcorn-dismiss {
+  position: absolute !important; left: 0 !important; right: 0 !important; bottom: 64px !important;
+  text-align: center !important; font-size: 18px !important; letter-spacing: 2px !important;
+  color: #fff !important; opacity: 0.8 !important; pointer-events: none !important;
+}
+.otychat-popcorn-emergency { cursor: pointer !important; pointer-events: auto !important; }
