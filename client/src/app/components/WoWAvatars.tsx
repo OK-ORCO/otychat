@@ -86,18 +86,29 @@ export default function WoWAvatars({ onBack, onSelect, current }: WoWAvatarsProp
                   display: 'block'
                 }}
               >
-                <img
-                  src={src(avatar.id)}
-                  alt={avatar.label}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: hasLoaded ? 1 : 0 }}
-                  onLoad={() => handleImageLoad(avatar.id)}
-                  onError={() => handleImageError(avatar.id)}
-                />
+                {hasFailed ? (
+                  <span className="ds-small ds-faint" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', padding: 4, textAlign: 'center' }}>
+                    not on server
+                  </span>
+                ) : (
+                  <img
+                    src={src(avatar.id)}
+                    alt={avatar.label}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: hasLoaded ? 1 : 0 }}
+                    onLoad={() => handleImageLoad(avatar.id)}
+                    onError={() => handleImageError(avatar.id)}
+                  />
+                )}
               </button>
             );
           })}
         </div>
 
+        {failedImages.size === WOW_AVATARS.length && (
+          <div className="ds-small" style={{ textAlign: 'center', marginTop: 12, color: 'var(--ds-red)' }}>
+            The avatar files are not on this server yet. The host runs scripts/push-assets.js once to upload them.
+          </div>
+        )}
         <div className="ds-small ds-faint" style={{ textAlign: 'center', marginTop: 12 }}>
           Avatars from Battle.net / Blizzard Entertainment
         </div>

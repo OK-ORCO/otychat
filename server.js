@@ -42,6 +42,12 @@ const REACT_BUILD_DIR = path.join(__dirname, 'public-react');
 // scripts/push-assets.js. Check the volume first, then the local copy.
 app.use('/emojis', express.static(path.join(DATA_DIR, 'assets/emojis')));
 app.use('/emojis', express.static(path.join(__dirname, 'client/public/emojis')));
+// The custom emoji are Discord emoji IDs; when the file is not on this server,
+// Discord's public CDN has it. Lets a fresh deploy work before push-assets runs.
+app.get('/emojis/:id.png', (req, res) => {
+  if (!/^\d{15,22}$/.test(req.params.id)) return res.status(404).end();
+  res.redirect(302, `https://cdn.discordapp.com/emojis/${req.params.id}.png?size=96`);
+});
 app.use('/avatars', express.static(path.join(DATA_DIR, 'assets/avatars')));
 app.use('/avatars', express.static(path.join(__dirname, 'client/public/avatars')));
 
